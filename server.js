@@ -12,12 +12,13 @@ dotenv.config();
 
 const app = express();
 
-// CORS Configuration
+// CORS Configuration to allow multiple origins
 app.use(cors({
-    origin: 'http://localhost:3000',  // Allow only requests from this origin
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Allow specific methods
+    origin: ['http://localhost:3000', 'https://school-manage-zeta.vercel.app'],  // Multiple allowed origins
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Allowed HTTP methods
     credentials: true  // Allow cookies if needed
   }));
+  
   
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
