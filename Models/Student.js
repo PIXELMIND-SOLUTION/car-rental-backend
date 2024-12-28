@@ -243,6 +243,7 @@ leaves: [
       reason: {
           type: String,
       },
+      leaveType: { type: String },
       status: {
           type: String,
           enum: ['Pending', 'Approved', 'Rejected'],

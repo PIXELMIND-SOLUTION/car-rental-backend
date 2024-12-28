@@ -7,6 +7,7 @@ import connectDatabase from './db/connectDatabase.js';
 import AdminRoutes from './Routes/AdminRoutes.js'
 import TeacherRoutes from './Routes/TeacherRoutes.js'
 import StudentRoutes from './Routes/StudentRoutes.js'
+import ParentRoutes from './Routes/ParentRoutes.js'
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ connectDatabase();
 app.use('/api/admin', AdminRoutes);
 app.use('/api/teacher', TeacherRoutes);
 app.use('/api/students', StudentRoutes)
+app.use('/api/parent', ParentRoutes)
 
 
 
