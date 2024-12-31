@@ -14,7 +14,7 @@ const classroomSchema = new mongoose.Schema({
     ],
     sections: [{
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'SectionModel', // Reference to the Section model
+      ref: 'Section', // Reference to the Section model
     }],
     className: {
     type: String,

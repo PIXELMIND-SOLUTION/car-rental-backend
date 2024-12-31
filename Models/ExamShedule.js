@@ -22,11 +22,17 @@ const examScheduleSchema = new mongoose.Schema({
   endTime: {
     type: String,
   },
+  examCenter: {
+    type: String,
+  },
   examType: {
     type: String,
     enum: ['Mid-Term', 'Final', 'Quiz', 'Unit Test'], // Enum for different exam types
-    required: true,
 },
+isAdmitCardGenerated: {
+  type: Boolean,
+  default: false // Default value is false
+}
 
 }, { timestamps: true });
 

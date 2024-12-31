@@ -10,6 +10,8 @@ const classRoutineSchema = new Schema({
       day: { type: String },      // removed 'required'
       time: { type: String },     // removed 'required'
       subject: { type: String },  // removed 'required'
+      teacher: { type: String },  // removed 'required'
+
     },
   ],
 });

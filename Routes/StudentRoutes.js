@@ -22,10 +22,13 @@ import {
     getStudentSubjects,
     getStudentSubjectsTeachers,
     getStudentTransport,
-    studentLogin
+    studentLogin,
+    getAdmitCard,
+    getStudentDetails
 } from '../Controller/StudentController.js'
 
 router.get('/get-exam-schedule/:studentId', getExamScheduleByStudent)
+router.get('/get-admit-card/:studentId', getAdmitCard)
 router.get('/get-routine/:studentId', getClassRoutine)
 router.get('/get-lesson/:studentId', getLessonsByStudent)
 router.get('/get-homework/:studentId', getHomeworkByStudent);
@@ -40,6 +43,7 @@ router.get('/notices/:studentId', getStudentNotices);
 router.get('/subjects/:studentId', getStudentSubjects);
 router.get('/teachers/:studentId', getStudentSubjectsTeachers);
 router.get('/get-transport/:studentId', getStudentTransport);
+router.get('/get-details/:studentId', getStudentDetails);
 router.post('/login', studentLogin)
 
 

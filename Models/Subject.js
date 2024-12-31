@@ -9,6 +9,7 @@ const subjectSchema = new mongoose.Schema(
         subjectName: { type: String, },   // Name of the subject (e.g., "Math", "Science")
         teacher: { type: String, },       // Name of the teacher who teaches the subject
         subjectType: { type: String, },   // Type of the subject (e.g., "Theory", "Practical")
+        subjectCode: { type: String, },   // Type of the subject (e.g., "Theory", "Practical")
         class: { type: String, },     // Class to which the subject belongs (e.g., "10th")
         section: { type: String, },       // Section of the class (e.g., "A", "B")
         schedule: {                                     // Exam schedule for the subject (optional)

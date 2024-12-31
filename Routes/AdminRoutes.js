@@ -38,7 +38,6 @@ import {
   getVehicles,
   addVisitor,
   addClass,
-  addSubject,
   getClasses,
   addTopic,
   getSubjectWiseAttendance,
@@ -59,7 +58,20 @@ import {
   postSyllabus,
   getSyllabus,
   createNotice,
-  createTransportAndAssignToStudent
+  createTransportAndAssignToStudent,
+  deleteSection,
+  updateSection,
+  updateClass,
+  removeClass,
+  createSubjectByAdmin,
+  getSubjects,
+  getSubjectNames,
+  getTopics,
+  generateAdmitCards,
+  generateAdmitCard,
+  addVisit,
+  getVisits,
+  getNotices
 } from '../Controller/AdminController.js'
 
 
@@ -73,6 +85,8 @@ router.get('/get-complaints', getComplaints);
 router.post('/add-phones', addPhoneCall);
 router.get('/get-phones', getPhoneCalls);
 router.post('/add-section', addSection);
+router.delete('/delete-section/:id', deleteSection); // Delete section
+router.put('/update-section/:id', updateSection); // Update section
 router.get('/get-section', getSections);
 router.post('/assign-teacher', assignClassTeacher);
 router.get('/get-teacher', getClassTeachers);
@@ -100,9 +114,9 @@ router.post('/add-vehicle', addVehicle);
 router.get('/get-vehicle', getVehicles);
 router.post('/add-visitor', addVisitor);
 router.post('/add-class', addClass);
-router.post('/add-subject', addSubject);
 router.get('/get-classes', getClasses);
 router.post('/add-topic', addTopic);
+router.get('/get-topic', getTopics);
 router.get('/subject-wise-attend', getSubjectWiseAttendance);
 router.get('/export-students', exportStudentsData);
 router.post('/add-homework',upload.single('file'), addHomework); // Middleware for handling single file uploadaddHomework
@@ -121,7 +135,18 @@ router.get('/get-assignment',getAssignments); // Middleware for handling single 
 router.post('/add-syllabus',upload.single('file'), postSyllabus); // Middleware for handling single file uploadaddHomework
 router.get('/get-syllabus',getSyllabus); // Middleware for handling single file uploadaddHomework
 router.post('/notices', createNotice);
+router.get('/get-notices', getNotices)
 router.post('/create-assign-transport', createTransportAndAssignToStudent);
+router.put('/update-class/:classId', updateClass);
+router.delete('/remove-class/:classId', removeClass);
+router.post('/add-subject', createSubjectByAdmin);
+router.get('/get-subjects', getSubjects);
+router.get('/get-subjects-names', getSubjectNames);
+router.post('/generate-admit-cards/:scheduleId', generateAdmitCard);
+router.post("/add-visit", addVisit);
+router.get("/get-visits", getVisits);
+
+
 
 
 

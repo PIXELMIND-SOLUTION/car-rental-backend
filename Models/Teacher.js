@@ -21,6 +21,13 @@ const teacherSchema = new mongoose.Schema({
         status: { type: String, enum: ['Present', 'Absent', 'On Leave'], default: 'Present' }
       }
     ],
+    subjects: [
+    {
+      class: { type: String },
+      section: { type: String },
+      subject: { type: String },
+    },
+  ],
     role: { type: String, default: 'Teacher' }
   }, { timestamps: true });
   

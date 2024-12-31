@@ -25,9 +25,6 @@ const visitorSchema = new mongoose.Schema({
   out_time: {
     type: String,
   },
-  file: {
-    type: String,
-  },
 }, { timestamps: true });
 
 const VisitorModel = mongoose.model('Visitor', visitorSchema);

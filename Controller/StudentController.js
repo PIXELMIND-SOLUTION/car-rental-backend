@@ -9,6 +9,7 @@ import Syllabus from '../Models/Syllabus.js';
 import Marks from '../Models/Mark.js';
 import Notice from '../Models/Notice.js';
 import jwt from 'jsonwebtoken'
+import PDFDocument from 'pdfkit';
 import dotenv from 'dotenv';
 import Transport from '../Models/Transport.js';
 
@@ -87,6 +88,107 @@ const getExamScheduleByStudent = async (req, res) => {
       res.status(500).json({ message: 'Error fetching exam schedules', error: error.message });
     }
   };
+
+  const getAdmitCard = async (req, res) => {
+    const { studentId } = req.params; // Extract studentId from params
+  
+    try {
+      // Fetch the student based on studentId
+      const student = await Student.findById(studentId);
+  
+      if (!student) {
+        return res.status(404).json({ message: 'Student not found' });
+      }
+  
+      // Fetch the exam schedules based on student's class and section and filter for isAdmitCardGenerated: true
+      const examSchedules = await Exam.find({
+        class: student.class,
+        section: student.section,
+        isAdmitCardGenerated: true, // Filter for schedules where admit card is generated
+      });
+  
+      if (examSchedules.length === 0) {
+        return res.status(404).json({ message: 'No exam schedules found for the student with admit cards generated' });
+      }
+  
+      // Create a new PDF document
+      const doc = new PDFDocument({ margin: 30 });
+  
+      // Set response headers for PDF download
+      const filename = `AdmitCard_${student.firstName}_${student.lastName}.pdf`;
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Type', 'application/pdf');
+  
+      // Add header
+      doc.fontSize(20).text('Admit Card', { align: 'center' }).moveDown(2);
+  
+      // Add student details
+      doc
+        .fontSize(14)
+        .text(`Student Name: ${student.firstName} ${student.lastName}`, { align: 'left' })
+        .text(`Class: ${student.class}`, { align: 'left' })
+        .text(`Section: ${student.section}`, { align: 'left' })
+        .text(`Roll Number: ${student.rollNumber}`, { align: 'left' })
+        .moveDown(2);
+  
+      // Table Headers
+      const tableHeaders = ['S.No.', 'Exam Title', 'Subject', 'Date', 'Time', 'Type'];
+      const columnWidths = [50, 100, 100, 100, 150, 100]; // Define column widths
+      let startX = 50; // Start position for the table
+      let startY = doc.y;
+  
+      // Draw table headers
+      doc.fontSize(12).font('Helvetica-Bold');
+      tableHeaders.forEach((header, index) => {
+        doc.text(header, startX, startY, { width: columnWidths[index], align: 'center' });
+        startX += columnWidths[index];
+      });
+  
+      // Draw line below headers
+      startY += 20; // Move down for row height
+      doc
+        .moveTo(50, startY - 10)
+        .lineTo(550, startY - 10)
+        .strokeColor('black')
+        .lineWidth(1)
+        .stroke();
+  
+      // Reset starting X for rows
+      startX = 50;
+  
+      // Draw table rows
+      doc.font('Helvetica').fontSize(10);
+      examSchedules.forEach((exam, rowIndex) => {
+        const rowHeight = 20;
+  
+        const rowData = [
+          rowIndex + 1,
+          exam.examTitle,
+          exam.subject,
+          new Date(exam.examDate).toLocaleDateString(),
+          `${exam.startTime} - ${exam.endTime}`,
+          exam.examType || 'N/A',
+        ];
+  
+        rowData.forEach((data, colIndex) => {
+          doc.text(data, startX, startY, { width: columnWidths[colIndex], align: 'center' });
+          startX += columnWidths[colIndex];
+        });
+  
+        // Move down to the next row
+        startY += rowHeight;
+        startX = 50; // Reset X position for the next row
+      });
+  
+      // Pipe the PDF to the response
+      doc.pipe(res);
+      doc.end();
+    } catch (error) {
+      // Handle errors during the fetch operation
+      res.status(500).json({ message: 'Error generating admit card', error: error.message });
+    }
+  };
+  
 
   const getClassRoutine = async (req, res) => {
     const { studentId } = req.params;  // Get studentId from request params
@@ -503,6 +605,29 @@ const studentLogin = asyncHandler(async (req, res) => {
 });
 
 
+ // Controller to get student details by parent
+ const getStudentDetails = async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+
+    // Step 2: Fetch student details
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Step 3: Return the student details
+    res.status(200).json({
+      message: "Student details fetched successfully",
+      student: student,
+    });
+  } catch (error) {
+    console.error("Error fetching student details:", error);
+    res.status(500).json({ message: "Error fetching student details", error: error.message });
+  }
+};
+
 export  {
     getStudents,
     getStudentById,
@@ -524,5 +649,7 @@ export  {
     getStudentSubjects,
     getStudentSubjectsTeachers,
     getStudentTransport,
-    studentLogin
+    studentLogin,
+    getAdmitCard,
+    getStudentDetails
 };

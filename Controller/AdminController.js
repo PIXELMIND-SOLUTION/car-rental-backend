@@ -12,6 +12,7 @@ import CertificateModel from '../Models/Certificate.js';
 import SectionModel from '../Models/Section.js';
 import Content from '../Models/Content.js';
 import Assignment from '../Models/Assignment.js';
+import VisitorModel from '../Models/Visitor.js';
 import Syllabus from '../Models/Syllabus.js';
 import Lesson from '../Models/Lesson.js';
 import Homework from '../Models/Homework.js';
@@ -21,7 +22,6 @@ import Transport from '../Models/Transport.js';
 import Vehicle from '../Models/Vehicle.js';
 import ExamType from '../Models/ExamType.js';
 import Exam from '../Models/ExamShedule.js';
-import VisitorModel from '../Models/Visitor.js';
 import Topic from '../Models/Topic.js';
 import Fee from '../Models/Fee.js';
 import SeatPlan from '../Models/SeatPlan.js';
@@ -198,50 +198,6 @@ const createClass = asyncHandler(async (req, res) => {
     res.status(201).json(createdClass);
 });
 
-const updateClass = asyncHandler(async (req, res) => {
-    const classObj = await Class.findById(req.params.id);
-    if (!classObj) {
-        res.status(404);
-        throw new Error('Class not found');
-    }
-    Object.assign(classObj, req.body);
-    const updatedClass = await classObj.save();
-    res.json(updatedClass);
-});
-
-const deleteClass = asyncHandler(async (req, res) => {
-    const classObj = await Class.findById(req.params.id);
-    if (!classObj) {
-        res.status(404);
-        throw new Error('Class not found');
-    }
-    await classObj.remove();
-    res.json({ message: 'Class removed' });
-});
-
-// Subject Management
-const getSubjects = asyncHandler(async (req, res) => {
-    const subjects = await Subject.find();
-    res.json(subjects);
-});
-
-const createSubject = asyncHandler(async (req, res) => {
-    const { name } = req.body;
-    const subject = new Subject({ name });
-    const createdSubject = await subject.save();
-    res.status(201).json(createdSubject);
-});
-
-const deleteSubject = asyncHandler(async (req, res) => {
-    const subject = await Subject.findById(req.params.id);
-    if (!subject) {
-        res.status(404);
-        throw new Error('Subject not found');
-    }
-    await subject.remove();
-    res.json({ message: 'Subject removed' });
-});
-
 // Attendance Management
 const markAttendance = asyncHandler(async (req, res) => {
     const { studentId, date, status } = req.body;
@@ -264,7 +220,6 @@ const addComplaint = async (req, res) => {
         assigned,
         description,
       } = req.body;
-      const file = req.file ? req.file.path : null;
   
       // Validate required fields
       if (!complaintBy || !complaintType || !complaintSource || !description) {
@@ -281,7 +236,6 @@ const addComplaint = async (req, res) => {
         actionsTaken,
         assigned,
         description,
-        file,
       });
   
       await complaint.save();
@@ -303,6 +257,55 @@ const getComplaints = async (req, res) => {
     res.status(500).json({ message: 'Error fetching complaints.', error: error.message });
   }
 };
+
+
+// Add a new visit
+const addVisit = async (req, res) => {
+  try {
+    const { purpose, name, phone, id, no_of_persons, date, in_time, out_time } = req.body;
+
+    const newVisit = new VisitorModel({
+      purpose,
+      name,
+      phone,
+      id,
+      no_of_persons,
+      date,
+      in_time,
+      out_time,
+    });
+
+    const savedVisit = await newVisit.save();
+    res.status(201).json({
+      message: "Visit added successfully",
+      visit: savedVisit,
+    });
+  } catch (error) {
+    console.error("Error adding visit:", error);
+    res.status(500).json({
+      message: "Failed to add visit",
+      error: error.message,
+    });
+  }
+};
+
+// Fetch all visits
+const getVisits = async (req, res) => {
+  try {
+    const visits = await VisitorModel.find();
+    res.status(200).json({
+      message: "Visits fetched successfully",
+      visits,
+    });
+  } catch (error) {
+    console.error("Error fetching visits:", error);
+    res.status(500).json({
+      message: "Failed to fetch visits",
+      error: error.message,
+    });
+  }
+};
+
 
 
 // Add a new phone call
@@ -487,6 +490,67 @@ const getSections = async (req, res) => {
     }
   };
 
+
+// Delete a section
+const deleteSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ID
+    if (!id) {
+      return res.status(400).json({ message: 'Section ID is required.' });
+    }
+
+    // Find and delete the section
+    const deletedSection = await SectionModel.findByIdAndDelete(id);
+
+    if (!deletedSection) {
+      return res.status(404).json({ message: 'Section not found.' });
+    }
+
+    res.status(200).json({ message: 'Section deleted successfully!', section: deletedSection });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting section.', error: error.message });
+  }
+};
+
+
+const updateSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    // Validate required fields
+    if (!id) {
+      return res.status(400).json({ message: 'Section ID is required.' });
+    }
+    if (!name) {
+      return res.status(400).json({ message: 'Section name is required.' });
+    }
+
+    // Log the ID and input
+    console.log('Update request ID:', id);
+    console.log('Update request body:', req.body);
+
+    // Find and update the section
+    const updatedSection = await SectionModel.findByIdAndUpdate(
+      id,
+      { name },
+      { new: true, runValidators: true } // Return the updated document and run validation
+    );
+
+    if (!updatedSection) {
+      return res.status(404).json({ message: 'Section not found.' });
+    }
+
+    res.status(200).json({ message: 'Section updated successfully!', section: updatedSection });
+  } catch (error) {
+    console.error('Error updating section:', error);
+    res.status(500).json({ message: 'Error updating section.', error: error.message });
+  }
+};
+
+
 // POST Controller to assign a class teacher
 const assignClassTeacher = async (req, res) => {
   try {
@@ -518,20 +582,48 @@ const getClassTeachers = async (req, res) => {
   }
 };
 
-// POST Controller to assign a subject teacher
 const assignSubjectTeacher = async (req, res) => {
   try {
-      const { class: className, section, subject, teacher } = req.body;
+    const { class: className, section, subject, teacher } = req.body;
 
-      // Create a new subject assignment without checking for existing assignments
-      const newAssignment = new Subject({ class: className, section, subject, teacher });
-      await newAssignment.save();
+    // Check if the teacher exists in the Teacher model using the "teacher" field
+    const existingTeacher = await Teacher.findOne({ teacher });
+    if (!existingTeacher) {
+      return res.status(404).json({ message: `Teacher '${teacher}' does not exist.` });
+    }
 
-      res.status(201).json({ message: 'Subject teacher assigned successfully.', data: newAssignment });
+    // If the teacher exists, create a new subject assignment
+    const newAssignment = new Subject({
+      class: className,
+      section,
+      subject,
+      teacher,
+    });
+
+    // Save the new assignment
+    await newAssignment.save();
+
+    // Optionally, add this assignment to the teacher's record (if needed)
+    existingTeacher.subjects = existingTeacher.subjects || [];
+    existingTeacher.subjects.push({
+      class: className,
+      section,
+      subject,
+    });
+    await existingTeacher.save();
+
+    res.status(201).json({
+      message: 'Subject teacher assigned successfully.',
+      data: newAssignment,
+    });
   } catch (error) {
-      res.status(500).json({ message: 'Error assigning subject teacher.', error: error.message });
+    res.status(500).json({
+      message: 'Error assigning subject teacher.',
+      error: error.message,
+    });
   }
 };
+
 
 // GET Controller to retrieve subject assignments
 const getSubjectAssignments = async (req, res) => {
@@ -603,38 +695,103 @@ const addClass = async (req, res) => {
 
 const getClasses = async (req, res) => {
   try {
-    // Find classes and select only the `className` field
-    const classes = await Class.find({}, 'className');
+    // Find classes and populate the 'sections' field with actual section data
+    const classes = await Class.find()
+      .populate('sections', 'name'); // Populate 'sections' with 'name' from Section
 
     if (!classes || classes.length === 0) {
       return res.status(404).json({ message: 'No classes found.' });
     }
 
-    return res.status(200).json({ message: 'Classes retrieved successfully', classes });
+    // Map through each class and transform section IDs into section names
+    const transformedClasses = classes.map(classItem => ({
+      ...classItem.toObject(),
+      sections: classItem.sections.map(section => section.name) // Replace section IDs with names
+    }));
+
+    return res.status(200).json({ message: 'Classes retrieved successfully', classes: transformedClasses });
   } catch (error) {
     return res.status(500).json({ message: 'Error retrieving classes', error: error.message });
   }
 };
 
-
-
-
-// GET Controller to retrieve classrooms
-const getClassrooms = async (req, res) => {
+// Update a class with sections
+const updateClass = async (req, res) => {
   try {
-      const { roomNo } = req.query;
+    const { className, sections } = req.body; // Destructure input data
+    const { classId } = req.params; // Extract classId from URL parameters
 
-      // Query based on room number (optional filter)
-      const filters = {};
-      if (roomNo) filters.roomNo = roomNo;
+    // Find the class by ID
+    const classToUpdate = await Class.findById(classId);
+    if (!classToUpdate) {
+      return res.status(404).json({ message: 'Class not found.' });
+    }
 
-      const classrooms = await Class.find(filters);
+    // If sections are provided, update the sections (sections can be names or ObjectIds, depends on your logic)
+    let sectionIds = [];
 
-      res.status(200).json({ message: 'Classrooms retrieved successfully.', data: classrooms });
+    // If sections are passed as names, we need to get the ObjectIds for those
+    if (sections.length > 0) {
+      // Find sections by their names and map them to ObjectIds
+      const foundSections = await SectionModel.find({ name: { $in: sections } });
+
+      // Check if all section names are valid and get their ObjectIds
+      sectionIds = foundSections.map(section => section._id);
+
+      // If some sections don't match, return an error
+      if (foundSections.length !== sections.length) {
+        return res.status(400).json({ message: 'One or more sections not found.' });
+      }
+    }
+
+    // Update the class with the new className and sectionIds
+    classToUpdate.className = className;
+    classToUpdate.sections = sectionIds; // Update sections with the ObjectIds
+
+    // Save the updated class
+    await classToUpdate.save();
+
+    return res.status(200).json({ message: 'Class updated successfully', class: classToUpdate });
   } catch (error) {
-      res.status(500).json({ message: 'Error retrieving classrooms.', error: error.message });
+    return res.status(500).json({ message: 'Error updating class', error: error.message });
   }
 };
+
+
+
+// Remove a class
+const removeClass = async (req, res) => {
+  try {
+    const { classId } = req.params; // Extract classId from the URL parameters
+
+    // Find the class by ID and delete it
+    const classToDelete = await Class.findByIdAndDelete(classId);
+    if (!classToDelete) {
+      return res.status(404).json({ message: 'Class not found.' });
+    }
+
+    return res.status(200).json({ message: 'Class removed successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error removing class', error: error.message });
+  }
+};
+
+
+
+
+
+const getClassrooms = async (req, res) => {
+  try {
+    // Fetch classrooms with only the roomNumber and capacity fields, excluding the _id
+    const classrooms = await Class.find({})
+      .select('roomNumber capacity');
+
+    res.status(200).json({ message: 'Classrooms retrieved successfully.', data: classrooms });
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving classrooms.', error: error.message });
+  }
+};
+
 
 // File upload configuration
 const storage = multer.diskStorage({
@@ -647,39 +804,41 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// POST Controller to upload content
+// POST Controller to upload content without document file handling
 const uploadContent = async (req, res) => {
   try {
-      const {
-          contentTitle,
-          contentType,
-          availableFor,
-          class: className,
-          section,
-          date,
-          description,
-          sourceURL,
-      } = req.body;
+    const {
+      contentTitle,
+      contentType,
+      availableFor,
+      class: className,
+      section,
+      date,
+      description,
+      sourceURL,
+    } = req.body;
 
-      // Create a new content entry
-      const newContent = new Content({
-          contentTitle,
-          contentType,
-          availableFor,
-          class: className,
-          section,
-          date,
-          description,
-          sourceURL,
-          documentFile: req.file ? req.file.path : null,
-      });
-      await newContent.save();
+    // Create a new content entry without document file
+    const newContent = new Content({
+      contentTitle,
+      contentType,
+      availableFor,
+      class: className,
+      section,
+      date,
+      description,
+      sourceURL,
+    });
 
-      res.status(201).json({ message: 'Content uploaded successfully.', data: newContent });
+    // Save the content to the database
+    await newContent.save();
+
+    res.status(201).json({ message: 'Content uploaded successfully.', data: newContent });
   } catch (error) {
-      res.status(500).json({ message: 'Error uploading content.', error: error.message });
+    res.status(500).json({ message: 'Error uploading content.', error: error.message });
   }
 };
+
 
 // GET Controller to retrieve uploaded content
 const getContent = async (req, res) => {
@@ -724,13 +883,9 @@ const postAssignment = async (req, res) => {
 };
 
 // Controller function to add a new lesson (POST)
- const addLesson = async (req, res) => {
-  const { class: lessonClass, subject, lessonName, title } = req.body;
+const addLesson = async (req, res) => {
+  const { class: lessonClass, subject, section, lessonName, title, postedBy } = req.body;
 
-  // Check if all required fields are provided
-  if (!lessonClass || !subject || !lessonName || !title) {
-    return res.status(400).json({ message: 'All fields (class, subject, lessonName, title) are required' });
-  }
 
   try {
     // Create a new lesson
@@ -738,7 +893,9 @@ const postAssignment = async (req, res) => {
       class: lessonClass,
       subject: subject,
       lessonName: lessonName,
-      title: title  // Include title here
+      title: title,  // Include title here
+      postedBy: postedBy, // Include postedBy here
+      section: section,
     });
 
     // Save the lesson to the database
@@ -1372,12 +1529,11 @@ export const getInvoices = async (req, res) => {
 };
 
 
-// Controller function to add a new exam schedule
- const addExamSchedule = async (req, res) => {
-  const { examTitle, class: examClass, section, subject, examDate, startTime, endTime } = req.body;
+const addExamSchedule = async (req, res) => {
+  const { examTitle, class: examClass, section, subject, examDate, startTime, endTime, examType, examCenter } = req.body;
 
   try {
-    // Create a new exam schedule entry
+    // Create a new exam schedule entry with isAdmitCardGenerated set to false by default
     const newExamSchedule = new Exam({
       examTitle,
       class: examClass,
@@ -1385,18 +1541,28 @@ export const getInvoices = async (req, res) => {
       subject,
       examDate,
       startTime,
-      endTime
+      endTime,
+      examType,
+      examCenter,
+      isAdmitCardGenerated: false // Default value for isAdmitCardGenerated
     });
 
     // Save the new exam schedule to the database
     await newExamSchedule.save();
 
     // Return success response
-    res.status(201).json({ message: 'Exam schedule added successfully', examSchedule: newExamSchedule });
+    res.status(201).json({
+      message: 'Exam schedule added successfully',
+      examSchedule: newExamSchedule
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error adding exam schedule', error: error.message });
+    res.status(500).json({
+      message: 'Error adding exam schedule',
+      error: error.message
+    });
   }
 };
+
 
 // Controller function to get all exam schedules
 const getExamSchedule = async (req, res) => {
@@ -1413,6 +1579,34 @@ const getExamSchedule = async (req, res) => {
   } catch (error) {
     // Handle errors during the fetch operation
     res.status(500).json({ message: 'Error fetching exam schedules', error: error.message });
+  }
+};
+
+const generateAdmitCard = async (req, res) => {
+  const { scheduleId } = req.params;
+
+  try {
+    // Find the exam schedule by ID and update the isAdmitCardGenerated field to true
+    const examSchedule = await Exam.findByIdAndUpdate(
+      scheduleId,
+      { isAdmitCardGenerated: true },
+      { new: true } // Return the updated document
+    );
+
+    if (!examSchedule) {
+      return res.status(404).json({ message: 'Exam schedule not found' });
+    }
+
+    // Return success response
+    res.status(200).json({
+      message: 'Admit card generated successfully',
+      examSchedule
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error generating admit card',
+      error: error.message
+    });
   }
 };
 
@@ -1532,74 +1726,74 @@ const getSeatPlan = async (req, res) => {
 };
 
 
-// Controller function to generate an admit card
- const generateAdmitCard = async (req, res) => {
-  const { studentId, examId } = req.body;
+// // Controller function to generate an admit card
+//  const generateAdmitCard = async (req, res) => {
+//   const { studentId, examId } = req.body;
 
-  // Validate the request
-  if (!studentId || !examId) {
-    return res.status(400).json({ message: 'Student ID and Exam ID are required' });
-  }
+//   // Validate the request
+//   if (!studentId || !examId) {
+//     return res.status(400).json({ message: 'Student ID and Exam ID are required' });
+//   }
 
-  try {
-    // Fetch student details
-    const student = await Student.findById(studentId);
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
+//   try {
+//     // Fetch student details
+//     const student = await Student.findById(studentId);
+//     if (!student) {
+//       return res.status(404).json({ message: 'Student not found' });
+//     }
 
-    // Fetch exam details
-    const exam = await ExamSchedule.findById(examId);
-    if (!exam) {
-      return res.status(404).json({ message: 'Exam not found' });
-    }
+//     // Fetch exam details
+//     const exam = await ExamSchedule.findById(examId);
+//     if (!exam) {
+//       return res.status(404).json({ message: 'Exam not found' });
+//     }
 
-    // Create a new admit card entry in the database (Optional)
-    const admitCard = new AdmitCard({
-      studentId: student._id,
-      examTitle: exam.examTitle,
-      examDate: exam.examDate,
-      startTime: exam.startTime,
-      endTime: exam.endTime,
-      class: student.class,
-      section: student.section,
-      subject: exam.subject,
-      admitCardGenerated: true
-    });
+//     // Create a new admit card entry in the database (Optional)
+//     const admitCard = new AdmitCard({
+//       studentId: student._id,
+//       examTitle: exam.examTitle,
+//       examDate: exam.examDate,
+//       startTime: exam.startTime,
+//       endTime: exam.endTime,
+//       class: student.class,
+//       section: student.section,
+//       subject: exam.subject,
+//       admitCardGenerated: true
+//     });
 
-    await admitCard.save();  // Save admit card in the database
+//     await admitCard.save();  // Save admit card in the database
 
-    // Generate the Admit Card PDF using PDFKit
-    const doc = new PDFDocument();
-    doc.fontSize(20).text('Admit Card', { align: 'center' });
-    doc.moveDown(2);
+//     // Generate the Admit Card PDF using PDFKit
+//     const doc = new PDFDocument();
+//     doc.fontSize(20).text('Admit Card', { align: 'center' });
+//     doc.moveDown(2);
 
-    // Student Details
-    doc.fontSize(14).text(`Name: ${student.firstName} ${student.lastName}`);
-    doc.text(`Admission Number: ${student.admissionNumber}`);
-    doc.text(`Class: ${student.class} - Section: ${student.section}`);
-    doc.text(`Date of Birth: ${student.dateOfBirth.toDateString()}`);
-    doc.moveDown(1);
+//     // Student Details
+//     doc.fontSize(14).text(`Name: ${student.firstName} ${student.lastName}`);
+//     doc.text(`Admission Number: ${student.admissionNumber}`);
+//     doc.text(`Class: ${student.class} - Section: ${student.section}`);
+//     doc.text(`Date of Birth: ${student.dateOfBirth.toDateString()}`);
+//     doc.moveDown(1);
 
-    // Exam Details
-    doc.text(`Exam Title: ${exam.examTitle}`);
-    doc.text(`Subject: ${exam.subject}`);
-    doc.text(`Exam Date: ${new Date(exam.examDate).toDateString()}`);
-    doc.text(`Start Time: ${exam.startTime}`);
-    doc.text(`End Time: ${exam.endTime}`);
+//     // Exam Details
+//     doc.text(`Exam Title: ${exam.examTitle}`);
+//     doc.text(`Subject: ${exam.subject}`);
+//     doc.text(`Exam Date: ${new Date(exam.examDate).toDateString()}`);
+//     doc.text(`Start Time: ${exam.startTime}`);
+//     doc.text(`End Time: ${exam.endTime}`);
 
-    // End of Document
-    doc.end();
+//     // End of Document
+//     doc.end();
 
-    // Send the PDF file as the response
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=admit_card.pdf');
-    doc.pipe(res);  // Pipe the generated PDF to the response
+//     // Send the PDF file as the response
+//     res.setHeader('Content-Type', 'application/pdf');
+//     res.setHeader('Content-Disposition', 'attachment; filename=admit_card.pdf');
+//     doc.pipe(res);  // Pipe the generated PDF to the response
 
-  } catch (error) {
-    res.status(500).json({ message: 'Error generating admit card', error: error.message });
-  }
-};
+//   } catch (error) {
+//     res.status(500).json({ message: 'Error generating admit card', error: error.message });
+//   }
+// };
 
 const addTopic = async (req, res) => {
   try {
@@ -1633,6 +1827,24 @@ const addTopic = async (req, res) => {
     res.status(500).json({ message: 'Error adding topic.', error: error.message });
   }
 };
+
+const getTopics = async (req, res) => {
+  try {
+    // Fetch all topics from the database
+    const topics = await Topic.find();
+
+    // If no topics are found, send a 404 response
+    if (topics.length === 0) {
+      return res.status(404).json({ message: 'No topics found.' });
+    }
+
+    // Send the found topics as a response
+    res.status(200).json({ message: 'Topics retrieved successfully.', data: topics });
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving topics.', error: error.message });
+  }
+};
+
 
 const getSubjectWiseAttendance = async (req, res) => {
   const { class: classFilter, section, subject, attendanceDate } = req.query;
@@ -1939,51 +2151,92 @@ const createNotice = asyncHandler(async (req, res) => {
 });
 
 
-const addSubject = asyncHandler(async (req, res) => {
-  const { subjectName, teacher, subjectType, class: className, section, examDate, examTime } = req.body;
+// Get all notices
+const getNotices = asyncHandler(async (req, res) => {
+  // Step 1: Retrieve all notices from the database
+  const notices = await Notice.find();
+
+  // Step 2: Respond with the list of notices
+  if (notices.length === 0) {
+    return res.status(404).json({
+      message: "No notices found"
+    });
+  }
+
+  res.status(200).json({
+    message: "Notices fetched successfully",
+    notices: notices
+  });
+});
+
+// Controller to add a subject
+const createSubjectByAdmin = asyncHandler(async (req, res) => {
+  const { subjectName, subjectType, subjectCode } = req.body;
+
+  // Check if all fields are provided
+  if (!subjectName || !subjectType || !subjectCode) {
+    return res.status(400).json({ message: 'All fields (subjectName, subjectType, subjectCode) are required.' });
+  }
 
   // Step 1: Create a new subject object
   const newSubject = new Subject({
-      subjectName,
-      teacher,
-      subjectType,
-      class: className,
-      section,
-      schedule: { examDate, examTime },
+    subjectName,
+    subjectType,
+    subjectCode,
   });
 
   // Save the subject to the database
   const createdSubject = await newSubject.save();
 
-  // Step 2: Find all students in the specified class and section
-  const studentsInClassAndSection = await Student.find({
-      class: className,  // Match the class field in Student model
-      section,
-  });
-
-  if (!studentsInClassAndSection || studentsInClassAndSection.length === 0) {
-      return res.status(404).json({ message: "No students found for this class and section" });
-  }
-
-  // Step 3: Push the subject's ObjectId to each student's subjects array
-  for (let student of studentsInClassAndSection) {
-      // Ensure the student's subjects field is an array (in case it's undefined or null)
-      if (!student.subjects) {
-          student.subjects = [];
-      }
-
-      // Push the ObjectId of the created subject
-      student.subjects.push(createdSubject._id);
-
-      await student.save(); // Save the student after adding the new subject
-  }
-
-  // Step 4: Respond with success message and the created subject
+  // Step 2: Respond with the created subject
   res.status(201).json({
-      message: "Subject added successfully to all students in this class and section",
-      subject: createdSubject,
+    message: 'Subject added successfully',
+    subject: createdSubject,
   });
 });
+
+// Controller to get all subjects
+const getSubjects = asyncHandler(async (req, res) => {
+  try {
+    // Fetch all subjects from the database
+    const subjects = await Subject.find();
+
+    if (!subjects || subjects.length === 0) {
+      return res.status(404).json({ message: 'No subjects found.' });
+    }
+
+    // Step 2: Respond with the list of subjects
+    res.status(200).json({
+      message: 'Subjects retrieved successfully',
+      subjects,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching subjects', error: error.message });
+  }
+});
+
+// Controller to get only subject names
+const getSubjectNames = asyncHandler(async (req, res) => {
+  try {
+    // Fetch all subjects from the database, but only select the subjectName field
+    const subjectNames = await Subject.find({}, 'subjectName'); // 'subjectName' ensures only this field is returned
+
+    if (!subjectNames || subjectNames.length === 0) {
+      return res.status(404).json({ message: 'No subjects found.' });
+    }
+
+    // Extract subjectName from the documents and respond with an array of names
+    const names = subjectNames.map((subject) => subject.subjectName);
+
+    res.status(200).json({
+      message: 'Subject names retrieved successfully',
+      subjectNames: names,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching subject names', error: error.message });
+  }
+});
+
 
 // Controller to create transport and assign it to a student
 const createTransportAndAssignToStudent = asyncHandler(async (req, res) => {
@@ -2029,6 +2282,35 @@ const createTransportAndAssignToStudent = asyncHandler(async (req, res) => {
   });
 });
 
+
+// Controller to generate admit cards for students based on scheduleId
+const generateAdmitCards = async (req, res) => {
+  try {
+    const { scheduleId } = req.body; // Only get scheduleId from the request
+
+    // Find all students who have the given scheduleId in their examSchedule array
+    const students = await Student.updateMany(
+      { 'examSchedule._id': scheduleId }, // Match students with the specific examSchedule _id
+      {
+        $set: {
+          'admitCard.admitGenerated': true, // Mark admit card as generated
+          'admitCard.issueDate': new Date(), // Set the issue date
+        },
+      }
+    );
+
+    // Send response based on modifiedCount
+    if (students.modifiedCount > 0) {
+      res.status(200).json({ message: 'Admit cards generated successfully.' });
+    } else {
+      res.status(404).json({ message: 'No students found for the given scheduleId.' });
+    }
+  } catch (error) {
+    console.error('Error generating admit cards:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 export { 
   adminRegistration,
    adminLogin,
@@ -2043,11 +2325,6 @@ export {
     deleteTeacher,
     getClasses,
     createClass,
-    updateClass,
-    deleteClass,
-    getSubjects,
-    createSubject,
-    deleteSubject,
     markAttendance,
     getAttendance,
     addComplaint,
@@ -2109,6 +2386,17 @@ export {
     getSyllabus,
     addAttendance,
     createNotice,
-    addSubject,
-    createTransportAndAssignToStudent
+    createTransportAndAssignToStudent,
+    deleteSection,
+    updateSection,
+    updateClass,
+    removeClass,
+    createSubjectByAdmin,
+    getSubjects,
+    getSubjectNames,
+    getTopics,
+    generateAdmitCards,
+    addVisit,
+    getVisits,
+    getNotices
 }

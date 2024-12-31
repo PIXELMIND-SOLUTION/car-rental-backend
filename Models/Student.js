@@ -288,9 +288,17 @@ marks: [
             type: String,
             enum: ['Mid-Term', 'Final', 'Quiz', 'Unit Test'], // You can add more types as per your requirements
         },
+        isAdmitCardGenerated: {
+          type: Boolean,
+          default: false, // Default value to false
+        },
         
     },
 ],
+admitCard: {
+  admitGenerated: { type: Boolean, default: false },
+  issueDate: { type: Date },
+},
 subjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Subject', default: [] }],  // Ensuring subjects is always an array
 transport: { type: mongoose.Schema.Types.ObjectId, ref: 'Transport' }, // Reference to the Transport model
 
