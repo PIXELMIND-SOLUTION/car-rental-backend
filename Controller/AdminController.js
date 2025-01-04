@@ -12,6 +12,7 @@ import CertificateModel from '../Models/Certificate.js';
 import SectionModel from '../Models/Section.js';
 import Content from '../Models/Content.js';
 import Assignment from '../Models/Assignment.js';
+import Driver from '../Models/Driver.js';
 import VisitorModel from '../Models/Visitor.js';
 import Syllabus from '../Models/Syllabus.js';
 import Lesson from '../Models/Lesson.js';
@@ -27,17 +28,15 @@ import Fee from '../Models/Fee.js';
 import SeatPlan from '../Models/SeatPlan.js';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
+import generateRefreshToken from '../config/refreshtoken.js';
+import generateToken from '../config/jwtToken.js';
 import multer from 'multer'
+import crypto from 'crypto'
 
 
 
 const adminRegistration = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
-
-  // Validate email format
-  if (!validator.isEmail(email)) {
-    return res.status(400).json({ error: "Invalid email" });
-  }
+  const { name, email, password } = req.body;
 
   // Check if admin with the same email already exists
   const admin = await Admin.findOne({ email: email });
@@ -45,23 +44,14 @@ const adminRegistration = asyncHandler(async (req, res) => {
     return res.status(409).json({ status: "failed", message: "Email already exists" });
   }
 
-  // Predefined roles
-  const allowedRoles = ["Admin", "Teacher", "Student", "Parent"];
-
-  // Validate role
-  if (!allowedRoles.includes(role)) {
-    return res.status(400).json({ status: "failed", message: "Invalid Role" });
-  }
-
   // Ensure all fields are filled
-  if (name && email && password && role) {
+  if (name && email && password) {
     try {
       // Create new Admin document
       const doc = new Admin({
         name: name,
         email: email,
         password: password,
-        role: role,
       });
 
       await doc.save();
@@ -69,7 +59,30 @@ const adminRegistration = asyncHandler(async (req, res) => {
       // Retrieve the saved admin without the password field
       const saved_admin = await Admin.findOne({ email: email }).select("-password");
 
-      return res.status(201).json({ message: "Registration Successful", data: saved_admin });
+      // Generate refresh token
+      const refreshToken = generateRefreshToken(saved_admin._id);
+
+      // Save refresh token in the database
+      saved_admin.refreshToken = refreshToken;
+      await saved_admin.save();
+
+      // Set the refresh token in an HTTP-only cookie
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 72 * 60 * 60 * 1000, // 3 days expiration
+        sameSite: 'Strict',
+      });
+
+      // Generate access token
+      const accessToken = generateToken(saved_admin._id);
+
+      return res.status(201).json({
+        message: "Registration Successful",
+        data: saved_admin,
+        accessToken,
+        refreshToken,
+      });
     } catch (error) {
       return res.status(500).json({
         status: "failed",
@@ -82,36 +95,40 @@ const adminRegistration = asyncHandler(async (req, res) => {
   }
 });
 
-  const adminLogin = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    // check if user exists or not
-    const findAdmin = await Admin.findOne({ email });
-    if (findAdmin && (await findAdmin.isPasswordMatched(password))) {
-      const refreshToken = await generateRefreshToken(findAdmin?._id);
-      const updateadmin = await Admin.findByIdAndUpdate(
-        findAdmin.id,
-        {
-          refreshToken: refreshToken,
-        },
-        { new: true }
-      );
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        maxAge: 72 * 60 * 60 * 1000,
-      });
-      res.json({
-        _id: findAdmin?._id,
-        firstName: findAdmin?.firstName,
-        lastName: findAdmin?.lastName,
-        email: findAdmin?.email,
-        mobile: findAdmin?.mobile,
-        token: generateToken(findAdmin?._id),
-      });
-    } else {
-      //throw new Error("Invalid Credentials");
-      return res.json({ message: "Invalid Credentials" })
-    }
-  })
+
+const adminLogin = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;  // Only use email
+
+  // Check if admin with the provided email exists
+  const findAdmin = await Admin.findOne({ email });
+
+  if (!findAdmin) {
+    return res.status(401).json({ message: "Invalid Credentials" });  // Admin not found
+  }
+
+  const refreshToken = await generateRefreshToken(findAdmin._id);
+
+  // Update the refresh token in the database
+  await Admin.findByIdAndUpdate(
+    findAdmin.id,
+    { refreshToken },
+    { new: true }
+  );
+
+  // Set the refresh token as an HTTP-only cookie
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    maxAge: 72 * 60 * 60 * 1000, // 3 days expiration
+  });
+
+  return res.json({
+    _id: findAdmin._id,
+    firstName: findAdmin.name,
+    email: findAdmin.email,
+    token: generateToken(findAdmin._id),
+  });
+});
+
   
   const adminLogout = asyncHandler(async (req, res) => {
     try {
@@ -160,13 +177,6 @@ const deleteStudent = asyncHandler(async (req, res) => {
 const getTeachers = asyncHandler(async (req, res) => {
     const teachers = await Teacher.find();
     res.json(teachers);
-});
-
-const createTeacher = asyncHandler(async (req, res) => {
-    const { name, subject } = req.body;
-    const teacher = new Teacher({ name, subject });
-    const createdTeacher = await teacher.save();
-    res.status(201).json(createdTeacher);
 });
 
 const updateTeacher = asyncHandler(async (req, res) => {
@@ -964,6 +974,7 @@ const addLesson = async (req, res) => {
 };
 
 
+
 const addStudent = async (req, res) => {
   const {
     academicYear,
@@ -998,11 +1009,15 @@ const addStudent = async (req, res) => {
     schoolAddress,
     schoolContact,
     additionalInfo,
-    customField1
+    customField1,
   } = req.body;
 
   try {
-    // Create a new student record
+    // Generate a random password for the student
+    const randomPassword = crypto.randomBytes(8).toString('hex');
+    console.log("Generated Random Password:", randomPassword);
+
+    // Create the student object
     const newStudent = new Student({
       academicYear,
       class: studentClass,
@@ -1021,12 +1036,6 @@ const addStudent = async (req, res) => {
       email,
       phone,
       address,
-      fatherName,
-      motherName,
-      guardianName,
-      fatherOccupation,
-      motherOccupation,
-      guardianPhone,
       documentType,
       documentNumber,
       issueDate,
@@ -1036,19 +1045,57 @@ const addStudent = async (req, res) => {
       schoolAddress,
       schoolContact,
       additionalInfo,
-      customField1
+      customField1,
+      randomPassword,
+      
+      // Directly store parent details in the myParents array
+      myParents: [
+        { name: fatherName, occupation: fatherOccupation, phone: guardianPhone, relationship: 'Father' },
+        { name: motherName, occupation: motherOccupation, phone: guardianPhone, relationship: 'Mother' },
+        { name: guardianName, phone: guardianPhone, relationship: 'Guardian' }
+      ]
     });
 
-    // Save the student record to the database
-    await newStudent.save();
+    console.log("New Student Object Before Save:", newStudent);
 
-    // Return success response
-    res.status(201).json({ message: 'Student added successfully', student: newStudent });
+    // Save the student record
+    const savedStudent = await newStudent.save();
+    console.log("Saved Student Record:", savedStudent);
+
+    // Generate refresh token
+    const refreshToken = generateRefreshToken(savedStudent._id);
+    console.log("Generated Refresh Token:", refreshToken);
+
+    // Save refresh token in the database
+    savedStudent.refreshToken = refreshToken;
+    await savedStudent.save();
+    console.log("Updated Student with Refresh Token:", savedStudent);
+
+    // Set the refresh token in an HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 72 * 60 * 60 * 1000, // 3 days expiration
+      sameSite: 'Strict',
+    });
+
+    // Generate access token
+    const accessToken = generateToken(savedStudent._id);
+    console.log("Generated Access Token:", accessToken);
+
+    // Respond with the saved student, tokens, and password
+    res.status(201).json({
+      message: 'Student added successfully',
+      student: savedStudent,
+      accessToken,
+      refreshToken,
+    });
   } catch (error) {
-    // Handle errors during save
+    console.error("Error Adding Student:", error.message);
     res.status(500).json({ message: 'Error adding student', error: error.message });
   }
 };
+
 
 
 // Controller function to get selected fields of students
@@ -2311,6 +2358,113 @@ const generateAdmitCards = async (req, res) => {
   }
 };
 
+
+const createTeacher = async (req, res) => {
+  const { name, email, phone, address, lastExperience, age, gender, education } = req.body;
+
+  // Set the joining date to the current date
+  const joiningDate = new Date(); // Current date and time
+
+  try {
+    // Generate a random password
+    const randomPassword = crypto.randomBytes(8).toString('hex');
+    console.log("Generated Random Password:", randomPassword);
+
+    // Create a new Teacher instance (no photo)
+    const newTeacher = new Teacher({
+      name,
+      email,
+      phone,
+      address,
+      lastExperience,
+      age,
+      gender,
+      education,
+      joiningDate, // Add joining date to the teacher details
+      password: randomPassword  // Save the generated password (ideally hash it before saving)
+    });
+
+    // Save the teacher to the database
+    const savedTeacher = await newTeacher.save();
+
+    // Generate refresh token
+    const refreshToken = generateRefreshToken(savedTeacher._id);
+    console.log("Generated Refresh Token:", refreshToken);
+
+    // Save refresh token in the database (optional step, only if you want to store the refresh token)
+    savedTeacher.refreshToken = refreshToken;
+    await savedTeacher.save();
+    console.log("Updated Teacher with Refresh Token:", savedTeacher);
+
+    // Set the refresh token in an HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 72 * 60 * 60 * 1000, // 3 days expiration
+      sameSite: 'Strict',
+    });
+
+    // Generate access token
+    const accessToken = generateToken(savedTeacher._id);
+    console.log("Generated Access Token:", accessToken);
+
+    // Respond with the saved teacher, tokens, and password
+    res.status(201).json({
+      message: 'Teacher created successfully!',
+      teacher: savedTeacher,
+      accessToken,
+      refreshToken,
+      password: randomPassword, // Return the password (ideally never send in production)
+    });
+  } catch (err) {
+    console.error("Error Creating Teacher:", err.message);
+    res.status(500).json({
+      message: 'Error creating teacher',
+      error: err.message
+    });
+  }
+};
+
+// Get all teachers
+const getAllTeachers = async (req, res) => {
+  try {
+    const teachers = await Teacher.find();
+    res.status(200).json(teachers);
+  } catch (err) {
+    res.status(500).json({
+      message: 'Error retrieving teachers',
+      error: err.message
+    });
+  }
+};
+
+// Controller to add a new driver
+const addDriver = async (req, res) => {
+  const { name, email, age, gender, mobileNumber, joiningDate } = req.body;
+
+
+  try {
+    // Save driver to database
+    const newDriver = new Driver({ name, email, age, gender, mobileNumber, joiningDate });
+    await newDriver.save();
+    res.status(201).json({ message: "Driver added successfully", driver: newDriver });
+  } catch (error) {
+    console.error("Error adding driver:", error);
+    res.status(500).json({ message: "Error adding driver", error: error.message });
+  }
+};
+
+// Controller to fetch all drivers
+const getDrivers = async (req, res) => {
+  try {
+    const drivers = await Driver.find();
+    res.status(200).json(drivers);
+  } catch (error) {
+    console.error("Error fetching drivers:", error);
+    res.status(500).json({ message: "Error fetching drivers", error: error.message });
+  }
+};
+
 export { 
   adminRegistration,
    adminLogin,
@@ -2320,7 +2474,6 @@ export {
     updateStudent,
     deleteStudent,
     getTeachers,
-    createTeacher,
     updateTeacher,
     deleteTeacher,
     getClasses,
@@ -2398,5 +2551,9 @@ export {
     generateAdmitCards,
     addVisit,
     getVisits,
-    getNotices
+    getNotices,
+    createTeacher,
+      getAllTeachers,
+      addDriver,
+      getDrivers
 }

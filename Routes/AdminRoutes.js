@@ -71,7 +71,11 @@ import {
   generateAdmitCard,
   addVisit,
   getVisits,
-  getNotices
+  getNotices,
+  getAllTeachers,
+  createTeacher,
+  addDriver,
+  getDrivers
 } from '../Controller/AdminController.js'
 
 
@@ -145,6 +149,12 @@ router.get('/get-subjects-names', getSubjectNames);
 router.post('/generate-admit-cards/:scheduleId', generateAdmitCard);
 router.post("/add-visit", addVisit);
 router.get("/get-visits", getVisits);
+router.post('/add-teacher', createTeacher);
+router.get('/teachers', getAllTeachers);
+router.post('/add-driver', addDriver);
+router.get('/drivers', getDrivers);
+
+
 
 
 

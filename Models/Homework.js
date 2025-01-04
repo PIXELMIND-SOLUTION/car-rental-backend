@@ -24,7 +24,17 @@ const homeworkSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-  }
+  },
+  class: { type: String },
+    subject: { type: String },
+    section: { type: String },
+    homeworkDate: { type: Date },
+    submissionDate: { type: Date },
+    marks: { type: Number },  // Total marks for the homework
+    marksObtained: { type: Number, default: 0 },  // Marks obtained by the student
+    description: { type: String },
+    homeworkTitle: { type: String }, // Added homeworkTitle
+    status: { type: String, enum: ['Not Submitted', 'Submitted'], default: 'Not Submitted' }, // Status of homework
 }, { timestamps: true });
 
 const Homework = mongoose.model('Homework', homeworkSchema);

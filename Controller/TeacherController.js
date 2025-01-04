@@ -7,6 +7,11 @@ import Attendance from '../Models/Attendance.js';
 import Student from '../Models/Student.js';
 import Marks from '../Models/Mark.js';
 import Exam from '../Models/ExamShedule.js';
+import Leave from '../Models/Leave.js';
+import Routine from '../Models/Routine.js';
+import ComplaintModel from '../Models/Complaint.js';
+import generateRefreshToken from '../config/refreshtoken.js';
+import generateToken from '../config/jwtToken.js';
 import multer from 'multer'
 
 const getTeachers = asyncHandler(async (req, res) => {
@@ -23,12 +28,6 @@ const getTeacherById = asyncHandler(async (req, res) => {
     res.json(teacher);
 });
 
-const createTeacher = asyncHandler(async (req, res) => {
-    const { name, subject } = req.body;
-    const teacher = new Teacher({ name, subject });
-    const createdTeacher = await teacher.save();
-    res.status(201).json(createdTeacher);
-});
 
 const updateTeacher = asyncHandler(async (req, res) => {
     const teacher = await Teacher.findById(req.params.id);
@@ -230,7 +229,7 @@ const getSyllabus = async (req, res) => {
   };
 
   const markAttendanceForClass = asyncHandler(async (req, res) => {
-    const { class: className, section, date, attendanceStatus } = req.body;
+    const { class: className, section, date, subject, attendanceStatus } = req.body;  // Add subject
 
     // Step 1: Fetch students based on class and section
     const students = await Student.find({ class: className, section });
@@ -241,23 +240,26 @@ const getSyllabus = async (req, res) => {
 
     // Step 2: Update attendance for each student
     const bulkUpdates = students.map(async (student) => {
-        // Check if attendance for the specific date already exists
+        // Check if attendance for the specific date and subject already exists
         const existingAttendance = student.attendance.find(
-            (att) => att.date.toISOString().split('T')[0] === new Date(date).toISOString().split('T')[0]
+            (att) => 
+                att.date.toISOString().split('T')[0] === new Date(date).toISOString().split('T')[0] &&
+                att.subject === subject  // Match by subject
         );
 
         if (existingAttendance) {
-            // Update existing attendance
+            // Update existing attendance for this subject and date
             existingAttendance.attendanceStatus = attendanceStatus;
         } else {
-            // Add new attendance
+            // Add new attendance record with subject
             student.attendance.push({
                 date,
+                subject,  // Add subject to the attendance
                 attendanceStatus,
             });
         }
 
-        return student.save(); // Save updated student
+        return student.save();  // Save updated student
     });
 
     // Wait for all updates to complete
@@ -332,10 +334,430 @@ const addExamSchedule = asyncHandler(async (req, res) => {
 });
 
 
+const getStudentsAttendance = async (req, res) => {
+  try {
+      const { class: studentClass, section, date, subject } = req.query;
+
+      const students = await Student.find({ class: studentClass, section });
+      const attendanceData = students.map((student) => {
+          const todayRecord = student.attendance.find(
+              (record) => record.date === date && record.subject === subject
+          ) || { date, subject, attendanceStatus: 'Absent' };  // Use 'attendanceStatus' instead of 'status'
+
+          return {
+              id: student._id,
+              name: student.firstName,
+              class: student.class,
+              section: student.section,
+              attendance: todayRecord,
+          };
+      });
+
+      res.status(200).json(attendanceData);
+  } catch (error) {
+      res.status(500).json({ message: 'Error fetching attendance data', error });
+  }
+};
+
+// Update attendance for a student
+ const updateAttendance = async (req, res) => {
+  try {
+      const { studentId, date, attendanceStatus } = req.body;
+
+      const student = await Student.findById(studentId);
+      if (!student) {
+          return res.status(404).json({ message: 'Student not found' });
+      }
+
+      const formattedDate = new Date(date).toISOString().split('T')[0];
+
+      const existingRecord = student.attendance.find(
+          (att) => att.date.toISOString().split('T')[0] === formattedDate
+      );
+
+      if (existingRecord) {
+          existingRecord.attendanceStatus = attendanceStatus;
+      } else {
+          student.attendance.push({ date: new Date(date), attendanceStatus });
+      }
+
+      await student.save();
+      res.status(200).json({ message: 'Attendance updated successfully' });
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Error updating attendance' });
+  }
+};
+
+const updateStudentAttendance = async (req, res) => {
+  try {
+      const { studentId, attendanceId } = req.params; // Getting both studentId and attendanceId from params
+      const { date, subject, attendanceStatus } = req.body;  // Changed 'status' to 'attendanceStatus'
+
+      const student = await Student.findById(studentId);
+      if (!student) {
+          return res.status(404).json({ message: 'Student not found' });
+      }
+
+      // Find the specific attendance record by attendanceId
+      const attendanceRecordIndex = student.attendance.findIndex(
+          (record) => record._id.toString() === attendanceId
+      );
+
+      if (attendanceRecordIndex === -1) {
+          return res.status(404).json({ message: 'Attendance record not found' });
+      }
+
+      // Update the attendance record
+      student.attendance[attendanceRecordIndex].attendanceStatus = attendanceStatus;
+
+      await student.save();
+      res.status(200).json({ message: 'Attendance updated successfully', student });
+  } catch (error) {
+      res.status(500).json({ message: 'Error updating attendance', error });
+  }
+};
+
+
+const createHomework = async (req, res) => {
+  try {
+      // Destructure data from request body
+      const { class: studentClass, subject, section, homeworkDate, submissionDate, marks, file, description, homeworkTitle, teacherId } = req.body;
+
+      // Create a new homework entry with homeworkTitle
+      const newHomework = new Homework({
+          class: studentClass,
+          subject,
+          section,
+          homeworkDate,
+          submissionDate,
+          marks,
+          description,
+          homeworkTitle, // Include homeworkTitle
+      });
+
+      // Save the new homework entry to the database
+      const savedHomework = await newHomework.save();
+
+      // Find the teacher by ID and add the homework ID to assignedHomework array
+      const teacher = await Teacher.findById(teacherId);
+
+      if (!teacher) {
+          return res.status(404).json({ message: 'Teacher not found' });
+      }
+
+      // Add the newly created homework to the teacher's assignedHomework array
+      teacher.assignedHomework.push(savedHomework._id);
+
+      // Save the teacher with the updated assignedHomework field
+      await teacher.save();
+
+      // Send a success response
+      res.status(201).json({
+          message: 'Homework created successfully and assigned to teacher!',
+          homework: savedHomework,
+      });
+  } catch (error) {
+      // Handle any errors that occur during the process
+      res.status(500).json({
+          message: 'Error creating homework',
+          error: error.message,
+      });
+  }
+};
+
+
+// Controller to handle GET request for fetching all homework entries
+const getHomeworks = async (req, res) => {
+  try {
+      // Fetch all homework entries from the database
+      const homeworks = await Homework.find();
+
+      // If no homework entries found, return a message
+      if (homeworks.length === 0) {
+          return res.status(404).json({
+              message: 'No homework found.',
+          });
+      }
+
+      // Send the homeworks as response
+      res.status(200).json({
+          message: 'Homeworks retrieved successfully!',
+          homeworks,
+      });
+  } catch (error) {
+      // Handle any errors that occur during the process
+      res.status(500).json({
+          message: 'Error retrieving homeworks',
+          error: error.message,
+      });
+  }
+};
+
+// Update homework status
+const updateHomeworkStatus = async (req, res) => {
+  const { homeworkId } = req.params; // homeworkId from the URL params
+  const { status } = req.body; // status from the request body
+
+  try {
+    // Find the homework by its ID
+    const homework = await Homework.findById(homeworkId);
+
+    if (!homework) {
+      return res.status(404).json({ message: 'Homework not found' });
+    }
+
+    // Update the status
+    homework.status = status;
+    
+    // Save the updated homework
+    await homework.save();
+
+    return res.status(200).json({ message: 'Status updated successfully!', homework });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error updating status', error });
+  }
+};
+
+const getAllMarks = asyncHandler(async (req, res) => {
+  // Step 1: Find all marks and populate the studentId field with selected fields
+  const marks = await Marks.find()
+    .populate('studentId', 'firstName lastName class section roll'); // Select specific fields
+
+  if (!marks || marks.length === 0) {
+    return res.status(404).json({ message: "No marks found" });
+  }
+
+  // Step 2: Respond with the marks data
+  res.status(200).json({
+    message: "Marks retrieved successfully",
+    marks,
+  });
+});
+
+
+const getClassRoutine = async (req, res) => {
+  try {
+    // Fetch all class routines from the database
+    const routines = await Routine.find();
+
+    // If no routines found
+    if (routines.length === 0) {
+      return res.status(404).json({ message: "No class routines found" });
+    }
+
+    // Return the fetched routines
+    return res.status(200).json(routines);
+  } catch (error) {
+    console.error("Error fetching class routines:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+
+// Apply for leave controller
+const applyForLeave = asyncHandler(async (req, res) => {
+  const { startDate, endDate, leaveType, reason } = req.body;
+
+  // Step 1: Validate the input data
+  if (!startDate || !endDate || !reason) {
+    return res.status(400).json({
+      message: "Please provide all necessary fields (teacherId, startDate, endDate, reason).",
+    });
+  }
+
+  // Step 2: Create the leave request
+  const newLeave = new Leave({
+    startDate,
+    endDate,
+    reason,
+    leaveType,
+    status: 'Pending', // Default status
+  });
+
+  // Step 3: Save the leave request to the database
+  await newLeave.save();
+
+  // Step 4: Respond with success
+  res.status(201).json({
+    message: "Leave applied successfully.",
+    leave: newLeave,
+  });
+});
+
+
+// Get all leaves controller
+const getAllLeaves = asyncHandler(async (req, res) => {
+  // Step 1: Fetch all leave requests from the Leave model
+  const allLeaves = await Leave.find();
+
+  // Step 2: If no leaves are found, return a 404 error
+  if (!allLeaves || allLeaves.length === 0) {
+    return res.status(404).json({
+      message: "No leave requests found.",
+    });
+  }
+
+  // Step 3: Return all leaves
+  res.status(200).json({
+    message: "All leaves retrieved successfully.",
+    leaves: allLeaves,
+  });
+});
+
+
+// Controller function to get selected fields of students
+const getStudentsAdmission = async (req, res) => {
+  try {
+    // Fetch students with selected fields only
+    const students = await Student.find();
+
+    // Return success response with the list of students
+    res.status(200).json({ message: 'Students fetched successfully', students });
+  } catch (error) {
+    // Handle errors during the fetch operation
+    res.status(500).json({ message: 'Error fetching students', error: error.message });
+  }
+};
+
+const fileComplaint = async (req, res) => {
+  const { studentId } = req.params
+  try {
+    const { title, description } = req.body;
+
+
+
+    const student = await Student.findById(studentId);
+
+    if (!student) return res.status(404).json({ message: "Student not found." });
+
+    const complaint = new ComplaintModel({
+      studentId,
+      title,
+      description,
+    });
+
+    await complaint.save();
+
+    // Update student's complaints array
+    student.complaints.push(complaint._id);
+    await student.save();
+
+    res.status(201).json({
+      message: "Complaint filed successfully.",
+      complaint,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error. Please try again later." });
+  }
+};
+
+
+// Create a new teacher with a photo
+const createTeacher = async (req, res) => {
+  try {
+    const { name, email, phone, address, lastExperience, age, gender, education } = req.body;
+    const photo = req.file ? req.file.path : null; // Handle photo file
+
+    // Create a new Teacher instance
+    const newTeacher = new Teacher({
+      name,
+      email,
+      phone,
+      address,
+      lastExperience,
+      age,
+      gender,
+      education,
+      photo  // Save the photo path
+    });
+
+    // Save the teacher to the database
+    await newTeacher.save();
+
+    // Send response back to the client
+    res.status(201).json({
+      message: 'Teacher created successfully!',
+      teacher: newTeacher
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: 'Error creating teacher',
+      error: err.message
+    });
+  }
+};
+
+// Get all teachers
+const getAllTeachers = async (req, res) => {
+  try {
+    const teachers = await Teacher.find();
+    res.status(200).json(teachers);
+  } catch (err) {
+    res.status(500).json({
+      message: 'Error retrieving teachers',
+      error: err.message
+    });
+  }
+};
+
+const teacherLogin = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // Find the teacher by email
+    const teacher = await Teacher.findOne({ email });
+
+    if (!teacher) {
+      return res.status(401).json({ message: 'Invalid Credentials' }); // Teacher not found
+    }
+
+    // Check if the provided password matches the stored one (if you're storing it hashed, compare with hashed password)
+    const passwordMatches = password === teacher.password; // If you're hashing passwords, use bcrypt.compare(password, teacher.password)
+
+    if (!passwordMatches) {
+      return res.status(401).json({ message: 'Invalid Credentials' }); // Incorrect password
+    }
+
+    // Generate refresh token
+    const refreshToken = generateRefreshToken(teacher._id);
+
+    // Save the refresh token in the database
+    teacher.refreshToken = refreshToken;
+    await teacher.save();
+
+    // Set the refresh token in an HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 72 * 60 * 60 * 1000, // 3 days expiration
+      sameSite: 'Strict',
+    });
+
+    // Generate access token
+    const accessToken = generateToken(teacher._id);
+
+    // Send response with teacher details, tokens, and message
+    res.status(200).json({
+      _id: teacher._id,
+      name: teacher.name,
+      email: teacher.email,
+      token: accessToken,
+      refreshToken,
+    });
+
+  } catch (err) {
+    console.error("Error Logging in Teacher:", err.message);
+    res.status(500).json({
+      message: 'Error logging in teacher',
+      error: err.message,
+    });
+  }
+};
 
 export { getTeachers,
      getTeacherById, 
-     createTeacher, 
      updateTeacher, 
      deleteTeacher, 
      postSyllabus,
@@ -347,6 +769,21 @@ export { getTeachers,
       getHomework,
       markAttendanceForClass,
       postMarksForStudent,
-      addExamSchedule
+      addExamSchedule,
+      updateAttendance,
+      getStudentsAttendance,
+      updateStudentAttendance,
+      createHomework,
+      getHomeworks,
+      updateHomeworkStatus,
+      getAllMarks,
+      getClassRoutine,
+      applyForLeave,
+      getAllLeaves,
+      getStudentsAdmission,
+      fileComplaint,
+      createTeacher,
+      getAllTeachers,
+      teacherLogin
 
      };

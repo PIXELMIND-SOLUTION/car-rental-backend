@@ -12,6 +12,8 @@ import jwt from 'jsonwebtoken'
 import PDFDocument from 'pdfkit';
 import dotenv from 'dotenv';
 import Transport from '../Models/Transport.js';
+import generateRefreshToken from '../config/refreshtoken.js';
+import generateToken from '../config/jwtToken.js';
 
 dotenv.config()
 
@@ -628,6 +630,48 @@ const studentLogin = asyncHandler(async (req, res) => {
   }
 };
 
+
+const loginStudent = async (req, res) => {
+  const { firstName, randomPassword } = req.body; // Get the first name and password from the request body
+
+  try {
+    // Find the student by firstName (make sure it's unique)
+    const student = await Student.findOne({ firstName });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Generate refresh token
+    const refreshToken = generateRefreshToken(student._id);
+
+    // Update student's refresh token in the database (optional)
+    student.refreshToken = refreshToken;
+    await student.save();
+
+    // Set refresh token as an HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Ensure it's only sent over HTTPS in production
+      maxAge: 72 * 60 * 60 * 1000, // Set expiry for 3 days
+      sameSite: 'Strict', // For added security
+    });
+
+    // Generate an access token
+    const accessToken = generateToken(student._id);
+
+    // Respond with student data and tokens
+    res.json({
+      _id: student._id,
+      firstName: student.firstName,
+      token: accessToken,
+      refreshToken, // Optional to include refresh token in the response
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
 export  {
     getStudents,
     getStudentById,
@@ -649,7 +693,7 @@ export  {
     getStudentSubjects,
     getStudentSubjectsTeachers,
     getStudentTransport,
-    studentLogin,
+    loginStudent,
     getAdmitCard,
     getStudentDetails
 };

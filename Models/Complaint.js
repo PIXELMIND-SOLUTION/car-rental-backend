@@ -10,7 +10,8 @@ const complaintSchema = new mongoose.Schema(
     actionsTaken: { type: String }, // Actions taken
     assigned: { type: String }, // Assigned to
     description: { type: String }, // Complaint description
-    file: { type: String }, // File path for uploaded file
+    title: { type: String }, // Complaint description
+
   },
   { timestamps: true }
 );

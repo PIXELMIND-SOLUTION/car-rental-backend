@@ -221,6 +221,12 @@ const studentSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  randomPassword: {
+    type: String, // Plain text password (if using random password generation)
+  },
+  refreshToken: {
+    type: String,
+  },
   attendance: [
     {
         date: {
@@ -229,6 +235,9 @@ const studentSchema = new mongoose.Schema({
         attendanceStatus: {
             type: String,
             enum: ['Present', 'Absent', 'Late'], // Add more if needed
+        },
+        subject: {
+          type: String,
         },
     },
 ],
@@ -301,6 +310,20 @@ admitCard: {
 },
 subjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Subject', default: [] }],  // Ensuring subjects is always an array
 transport: { type: mongoose.Schema.Types.ObjectId, ref: 'Transport' }, // Reference to the Transport model
+ // Parent information (an array of parent objects)
+ myParents: [
+  {
+    parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Parent' },
+    name: String,
+    email: String,
+    phone: String,
+    occupation: String,
+    relationship: String,  // e.g. Father, Mother, Guardian
+  }
+],
+complaints: [
+  { type: mongoose.Schema.Types.ObjectId, ref: "Complaint" } // Reference to complaints against the student
+],
 
 
 }, { timestamps: true });

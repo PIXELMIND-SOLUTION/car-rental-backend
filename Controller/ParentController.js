@@ -7,6 +7,8 @@ import Assignment from '../Models/Assignment.js'
 import Notice from '../Models/Notice.js'
 import Routine from '../Models/Routine.js'
 import Leave from '../Models/Leave.js'
+import generateRefreshToken from '../config/refreshtoken.js';
+import generateToken from '../config/jwtToken.js';
 import asyncHandler from 'express-async-handler'
 import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
@@ -16,64 +18,79 @@ dotenv.config()
 const SECRET_KEY = process.env.JWT_SECRET_KEY;
 
 const parentLogin = async (req, res) => {
-    const { name, email, password } = req.body;
+  const { username, password } = req.body; // Extract username and password (relationship)
 
-    try {
-        // Step 1: Find students whose fatherName or motherName matches the provided name
-        const students = await Student.find({
-            $or: [{ fatherName: name }, { motherName: name }],
-        });
+  try {
+    // Find the student whose parent has the given name (username)
+    const student = await Student.findOne({ "myParents.name": username });
 
-        if (students.length === 0) {
-            return res
-                .status(404)
-                .json({ message: 'No students found with matching parent name' });
-        }
-
-        // Step 2: Find parent by email or create a new one
-        let parent = await Parent.findOne({ email });
-
-        if (!parent) {
-            // Create a new parent and save to the database
-            parent = new Parent({
-                email,
-                name,
-                password, // Storing the password (consider hashing for security)
-                myStudents: [], // Start with an empty student array
-            });
-            await parent.save(); // Save the newly created parent
-        }
-
-        // Step 3: Extract student IDs and update Parent's myStudents array
-        const studentIds = students.map((student) => student._id);
-        parent.myStudents = studentIds; // Update the parent's student list
-        await parent.save(); // Save changes to the Parent document
-
-        // Step 4: Generate a JWT token for the parent
-        const token = jwt.sign({ parentId: parent._id }, SECRET_KEY, {
-            expiresIn: '1h', // Token expires in 1 hour
-        });
-
-        // Step 5: Send response with token, parent details, and matching students' details
-        res.status(200).json({
-            message: 'Login successful',
-            token,
-            parent: {
-                id: parent._id, // Include parent ID
-                name: parent.name,
-                email: parent.email,
-            },
-            students: students.map((student) => ({
-                id: student._id, // Include student ID
-                name: student.name,
-                class: student.class,
-                section: student.section,
-            })),
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!student) {
+      return res.status(404).json({ message: 'Parent not found' });
     }
+
+    // Check if the parent's relationship matches the given password
+    const parent = student.myParents.find(
+      (parent) => parent.name === username && parent.relationship === password
+    );
+
+    if (!parent) {
+      return res.status(401).json({ message: 'Invalid credentials: Do not be over smart enter correct credentials!' });
+    }
+
+    // Initialize myStudents if it doesn't exist
+    if (!parent.myStudents) {
+      parent.myStudents = [];
+    }
+
+    // Check if the student ID is already stored in the parent's myStudents array
+    const isStudentLinked = parent.myStudents.some(
+      (s) => s.studentId.toString() === student._id.toString()
+    );
+
+    let newStudentAdded = null;
+
+    if (!isStudentLinked) {
+      // Add the current student's ID to the parent's myStudents array
+      newStudentAdded = { studentId: student._id };
+      parent.myStudents.push(newStudentAdded);
+      await student.save(); // Save the changes to the database
+    }
+
+    // Generate refresh token
+    const refreshToken = generateRefreshToken(parent._id);
+
+    // Save the refresh token in the database
+    parent.refreshToken = refreshToken;
+    await student.save(); // Save the updated parent details
+
+    // Set the refresh token in an HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 72 * 60 * 60 * 1000, // 3 days expiration
+      sameSite: 'Strict',
+    });
+
+    // Generate access token
+    const accessToken = generateToken(parent._id);
+
+    // Respond with the parent ID, name, tokens, and the associated students
+    res.status(200).json({
+      message: 'Login successful',
+      parentId: parent._id, // Parent's unique ID from `myParents`
+      parentName: parent.name, // Parent's name
+      newStudentAdded: newStudentAdded || null, // Show the newly added student ID if applicable
+      myStudents: parent.myStudents, // List all associated students
+      token: accessToken, // Access token for further authorization
+      refreshToken, // Refresh token
+    });
+  } catch (error) {
+    console.error('Login error:', error.message);
+    res.status(500).json({ message: 'Error logging in', error: error.message });
+  }
 };
+
+
 
 // Get student transport details
 const getStudentTransport = async (req, res) => {
