@@ -274,25 +274,36 @@ const getSyllabus = async (req, res) => {
 
 const postMarksForStudent = asyncHandler(async (req, res) => {
   const { studentId } = req.params;
-  const { subject, marksObtained, totalMarks, examDate } = req.body;
+  const { subject, marksObtained, totalMarks, examDate, examType } = req.body;
 
   // Step 1: Create a new marks entry
-  const newMark = new Marks({
-      studentId,
-      subject,
-      marksObtained,
-      totalMarks,
-      examDate,
-  });
+  const newMark = {
+    subject,
+    marksObtained,
+    totalMarks,
+    examDate,
+    examType
+  };
 
-  // Step 2: Save the marks to the database
-  await newMark.save();
+  // Step 2: Find the student by studentId
+  const student = await Student.findById(studentId);
+
+  if (!student) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  // Step 3: Push the new marks into the student's marks array
+  student.marks.push(newMark);
+
+  // Step 4: Save the updated student document
+  await student.save();
 
   res.status(201).json({
-      message: "Marks added successfully",
-      marks: newMark,
+    message: "Marks added successfully",
+    marks: newMark,
   });
 });
+
 
 const addExamSchedule = asyncHandler(async (req, res) => {
   const { class: className, section, subject, examDate, examTime, examType } = req.body;  // Get className, section, and other details from the request body

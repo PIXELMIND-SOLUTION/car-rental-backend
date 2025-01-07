@@ -9,6 +9,7 @@ import Subject from '../Models/Subject.js';
 import PhoneCallModel from '../Models/PhoneCall.js';
 import ComplaintModel from '../Models/Complaint.js';
 import CertificateModel from '../Models/Certificate.js';
+import cloudinary from '../config/cloudinary.js';
 import SectionModel from '../Models/Section.js';
 import Content from '../Models/Content.js';
 import Assignment from '../Models/Assignment.js';
@@ -26,6 +27,8 @@ import Exam from '../Models/ExamShedule.js';
 import Topic from '../Models/Topic.js';
 import Fee from '../Models/Fee.js';
 import SeatPlan from '../Models/SeatPlan.js';
+import Marks from '../Models/Mark.js';
+import Staff from '../Models/Staff.js';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import generateRefreshToken from '../config/refreshtoken.js';
@@ -2465,6 +2468,189 @@ const getDrivers = async (req, res) => {
   }
 };
 
+const getAllMarks = asyncHandler(async (req, res) => {
+  try {
+    // Step 1: Retrieve all marks and populate student details
+    const marks = await Marks.find().populate(
+      "studentId",
+      "firstName lastName class roll section fatherName motherName"
+    );
+
+    if (!marks || marks.length === 0) {
+      return res.status(404).json({ message: "No marks found" });
+    }
+
+    // Step 2: Group marks by students and calculate totals
+    const studentMarks = {};
+
+    marks.forEach((mark) => {
+      const studentId = mark.studentId?._id?.toString() || mark.studentId || "Unknown";
+
+      if (!studentMarks[studentId]) {
+        studentMarks[studentId] = {
+          student: mark.studentId || { firstName: "N/A", lastName: "N/A" },
+          subjects: [],
+          totalObtainedMarks: 0,
+          totalMarks: 0,
+        };
+      }
+
+      const percentage = (mark.marksObtained / mark.totalMarks) * 100;
+
+      // Determine grade based on percentage
+      let grade = "F";
+      if (percentage >= 90) grade = "A+";
+      else if (percentage >= 80) grade = "A";
+      else if (percentage >= 70) grade = "B";
+      else if (percentage >= 60) grade = "C";
+      else if (percentage >= 50) grade = "D";
+
+      // Determine pass/fail status
+      const status = percentage >= 40 ? "Pass" : "Fail";
+
+      // Add subject details
+      studentMarks[studentId].subjects.push({
+        subject: mark.subject,
+        marksObtained: mark.marksObtained,
+        totalMarks: mark.totalMarks,
+        percentage: percentage.toFixed(2),
+        grade,
+        status,
+      });
+
+      // Update total obtained marks and total marks
+      studentMarks[studentId].totalObtainedMarks += mark.marksObtained;
+      studentMarks[studentId].totalMarks += mark.totalMarks;
+    });
+
+    // Step 3: Process grouped data and calculate overall percentage/status
+    const processedMarks = Object.values(studentMarks).map((student) => {
+      const overallPercentage =
+        (student.totalObtainedMarks / student.totalMarks) * 100;
+      const overallStatus = overallPercentage >= 40 ? "Pass" : "Fail";
+
+      return {
+        ...student,
+        overallPercentage: overallPercentage.toFixed(2),
+        overallStatus,
+      };
+    });
+
+    // Step 4: Respond with the processed marks
+    res.status(200).json({
+      message: "All marks retrieved successfully",
+      marks: processedMarks,
+    });
+  } catch (error) {
+    console.error("Error retrieving marks:", error);
+    res.status(500).json({ message: "Failed to retrieve marks" });
+  }
+});
+
+
+
+// Controller to add a new staff member
+ const addStaff = async (req, res) => {
+  try {
+    const { firstName, lastName, email, phone, position, department, gender, dateOfBirth, address, joiningDate, salary, employeeId, emergencyContact, profilePicture, qualifications } = req.body;
+
+    const newStaff = new Staff({
+      firstName,
+      lastName,
+      email,
+      phone,
+      position,
+      department,
+      gender,
+      dateOfBirth,
+      address,
+      joiningDate,
+      salary,
+      employeeId,
+      emergencyContact,
+      profilePicture,
+      qualifications
+    });
+
+    const savedStaff = await newStaff.save(); // Save the staff in the database
+
+    res.status(201).json({
+      message: 'Staff added successfully!',
+      staff: savedStaff
+    });
+  } catch (error) {
+    console.error('Error adding staff:', error);
+    res.status(500).json({ message: 'Failed to add staff' });
+  }
+};
+
+// Controller to get all staff members
+ const getAllStaff = async (req, res) => {
+  try {
+    const staff = await Staff.find(); // Get all staff from the database
+
+    if (!staff || staff.length === 0) {
+      return res.status(404).json({ message: 'No staff found' });
+    }
+
+    res.status(200).json({
+      message: 'Staff retrieved successfully',
+      staff
+    });
+  } catch (error) {
+    console.error('Error retrieving staff:', error);
+    res.status(500).json({ message: 'Failed to retrieve staff' });
+  }
+};
+
+
+// Controller function to handle file uploads and saving school details
+ const updateSchoolDetails = async (req, res) => {
+  try {
+    const { schoolName, address, contact, email, description } = req.body;
+
+    // Prepare file upload to Cloudinary
+    let logoUrl = null;
+    let schoolImageUrl = null;
+
+    // Handle logo image upload
+if (req.files['logo']) {
+  const logoUpload = await cloudinary.uploader.upload(req.files['logo'][0].path, {
+    folder: 'school',  // Cloudinary folder to store images
+  });
+  logoUrl = logoUpload.secure_url;  // Get the URL of the uploaded logo
+}
+
+// Handle school image upload
+if (req.files['schoolImage']) {
+  const schoolImageUpload = await cloudinary.uploader.upload(req.files['schoolImage'][0].path, {
+    folder: 'school',  // Cloudinary folder to store images
+  });
+  schoolImageUrl = schoolImageUpload.secure_url;  // Get the URL of the uploaded school image
+}
+
+    // Update school details in the database
+    const admin = await Admin.findOneAndUpdate(
+      {}, // Specify criteria to find the school or admin, e.g., admin ID
+      {
+        schoolName,
+        address,
+        contact,
+        email,
+        description,
+        logo: logoUrl,  // Save the Cloudinary URL for the logo
+        schoolImage: schoolImageUrl,  // Save the Cloudinary URL for the school image
+      },
+      { new: true } // Return the updated document
+    );
+
+    res.status(200).json({ message: 'School details updated successfully!', admin });
+  } catch (error) {
+    console.error('Error updating school details:', error);
+    res.status(500).json({ error: 'Failed to update school details.' });
+  }
+};
+
 export { 
   adminRegistration,
    adminLogin,
@@ -2555,5 +2741,9 @@ export {
     createTeacher,
       getAllTeachers,
       addDriver,
-      getDrivers
+      getDrivers,
+      getAllMarks,
+      addStaff,
+      getAllStaff,
+      updateSchoolDetails
 }

@@ -274,6 +274,9 @@ marks: [
       examDate: {
           type: Date,
       },
+      examType: {
+        type: String,
+    },
   },
 ],
   students: [

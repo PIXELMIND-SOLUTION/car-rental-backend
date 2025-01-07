@@ -1,7 +1,6 @@
 import express from 'express'
 const router = express.Router();
 import multer from 'multer';
-const upload = multer({ dest: 'uploads/' });
 import {
   adminRegistration,
   adminLogin,
@@ -75,8 +74,24 @@ import {
   getAllTeachers,
   createTeacher,
   addDriver,
-  getDrivers
+  getDrivers,
+  getAllMarks,
+  addStaff,
+  getAllStaff,
+  updateSchoolDetails
 } from '../Controller/AdminController.js'
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, './uploads/'); // Define the destination for file uploads
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname); // Set a unique filename
+  }
+});
+
+const upload = multer({ storage }); // Initialize multer with the storage configuration
 
 
 
@@ -153,6 +168,12 @@ router.post('/add-teacher', createTeacher);
 router.get('/teachers', getAllTeachers);
 router.post('/add-driver', addDriver);
 router.get('/drivers', getDrivers);
+router.get('/marks', getAllMarks);
+router.post('/add-staff', addStaff);
+router.get('/staffs', getAllStaff);
+router.post('/settings', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'schoolImage', maxCount: 1 }]), updateSchoolDetails);
+
+
 
 
 

@@ -412,18 +412,74 @@ const getLeavesByStudent = asyncHandler(async (req, res) => {
 const getMarksByStudent = asyncHandler(async (req, res) => {
   const { studentId } = req.params;
 
-  // Step 1: Find marks by student ID
-  const marks = await Marks.find({ studentId });
+  try {
+    // Step 1: Retrieve marks for the given student ID and populate student details
+    const marks = await Marks.find({ studentId }).populate(
+      "studentId",
+      "firstName lastName class roll section fatherName motherName"
+    );
 
-  if (!marks || marks.length === 0) {
+    if (!marks || marks.length === 0) {
       return res.status(404).json({ message: "Marks not found for this student" });
-  }
+    }
 
-  // Step 2: Respond with the marks data
-  res.status(200).json({
+    // Step 2: Group marks by student and calculate totals
+    const studentMarks = {
+      student: marks[0].studentId || { firstName: "N/A", lastName: "N/A" },
+      subjects: [],
+      totalObtainedMarks: 0,
+      totalMarks: 0,
+    };
+
+    marks.forEach((mark) => {
+      const percentage = (mark.marksObtained / mark.totalMarks) * 100;
+
+      // Determine grade based on percentage
+      let grade = "F";
+      if (percentage >= 90) grade = "A+";
+      else if (percentage >= 80) grade = "A";
+      else if (percentage >= 70) grade = "B";
+      else if (percentage >= 60) grade = "C";
+      else if (percentage >= 50) grade = "D";
+
+      // Determine pass/fail status
+      const status = percentage >= 40 ? "Pass" : "Fail";
+
+      // Add subject details
+      studentMarks.subjects.push({
+        subject: mark.subject,
+        marksObtained: mark.marksObtained,
+        totalMarks: mark.totalMarks,
+        percentage: percentage.toFixed(2),
+        grade,
+        status,
+      });
+
+      // Update total obtained marks and total marks
+      studentMarks.totalObtainedMarks += mark.marksObtained;
+      studentMarks.totalMarks += mark.totalMarks;
+    });
+
+    // Step 3: Calculate overall percentage and status
+    const overallPercentage =
+      (studentMarks.totalObtainedMarks / studentMarks.totalMarks) * 100;
+    const overallStatus = overallPercentage >= 40 ? "Pass" : "Fail";
+
+    const response = {
+      ...studentMarks,
+      overallPercentage: overallPercentage.toFixed(2),
+      overallStatus,
+    };
+
+    // Step 4: Respond with the structured marks
+    res.status(200).json({
       message: "Marks retrieved successfully",
-      marks,
-  });
+      marks: response,
+    });
+  } catch (error) {
+    console.error("Error retrieving marks:", error);
+    res.status(500).json({ message: "Failed to retrieve marks" });
+  }
 });
 
 
