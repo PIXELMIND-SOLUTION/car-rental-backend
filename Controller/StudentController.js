@@ -8,13 +8,13 @@ import Assignment from '../Models/Assignment.js';
 import Syllabus from '../Models/Syllabus.js';
 import Marks from '../Models/Mark.js';
 import Notice from '../Models/Notice.js';
+import puppeteer from 'puppeteer'
 import jwt from 'jsonwebtoken'
 import PDFDocument from 'pdfkit';
 import dotenv from 'dotenv';
 import Transport from '../Models/Transport.js';
 import generateRefreshToken from '../config/refreshtoken.js';
 import generateToken from '../config/jwtToken.js';
-import puppeteer from 'puppeteer'
 
 dotenv.config()
 
@@ -188,10 +188,11 @@ const getExamScheduleByStudent = async (req, res) => {
             }
             .logo {
               position: absolute;
-              top: 20px; /* Margin from top */
+              top: 10px; /* Adjust logo to be higher */
               right: 10px;
               width: 100px;
               height: auto;
+              margin-bottom: 20px; /* Add bottom margin for spacing */
             }
           </style>
         </head>
@@ -251,8 +252,8 @@ const getExamScheduleByStudent = async (req, res) => {
       res.status(500).json({ message: 'Error generating admit card', error: error.message });
     }
   };
-  
-  
+   
+
   const getClassRoutine = async (req, res) => {
     const { studentId } = req.params;  // Get studentId from request params
   
