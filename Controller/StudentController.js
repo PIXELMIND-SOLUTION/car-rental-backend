@@ -188,6 +188,7 @@ const getExamScheduleByStudent = async (req, res) => {
             }
             .logo {
               position: absolute;
+              top: 20px; /* Margin from top */
               right: 10px;
               width: 100px;
               height: auto;
