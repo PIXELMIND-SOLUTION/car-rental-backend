@@ -8,9 +8,8 @@ import Assignment from '../Models/Assignment.js';
 import Syllabus from '../Models/Syllabus.js';
 import Marks from '../Models/Mark.js';
 import Notice from '../Models/Notice.js';
-import puppeteer from 'puppeteer'
 import jwt from 'jsonwebtoken'
-import PDFDocument from 'pdfkit';
+import puppeteer from 'puppeteer-core'; // Ensure you are using `puppeteer-core` instead of `puppeteer`
 import dotenv from 'dotenv';
 import Transport from '../Models/Transport.js';
 import generateRefreshToken from '../config/refreshtoken.js';
@@ -92,166 +91,89 @@ const getExamScheduleByStudent = async (req, res) => {
     }
   };
 
-  const getAdmitCard = async (req, res) => {
-    const { studentId } = req.params; // Extract studentId from params
-  
-    try {
-      // Fetch the student based on studentId
-      const student = await Student.findById(studentId);
-  
-      if (!student) {
-        return res.status(404).json({ message: 'Student not found' });
-      }
-  
-      // Fetch the exam schedules based on student's class and section and filter for isAdmitCardGenerated: true
-      const examSchedules = await Exam.find({
-        class: student.class,
-        section: student.section,
-        isAdmitCardGenerated: true, // Filter for schedules where admit card is generated
-      });
-  
-      if (examSchedules.length === 0) {
-        return res.status(404).json({ message: 'No exam schedules found for the student with admit cards generated' });
-      }
-  
-      // Create the HTML template with embedded styles
-      let examRows = examSchedules.map((exam, rowIndex) => {
-        return `
-          <tr>
-            <td>${rowIndex + 1}</td>
-            <td>${exam.examTitle}</td>
-            <td>${exam.subject}</td>
-            <td>${new Date(exam.examDate).toLocaleDateString()}</td>
-            <td>${exam.startTime} - ${exam.endTime}</td>
-            <td>${exam.examType || 'N/A'}</td>
-          </tr>
-        `;
-      }).join('');
-  
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Admit Card</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              background-color: #f4f4f4;
-              margin: 0;
-              padding: 20px;
-            }
-            .container {
-              max-width: 800px;
-              margin: 0 auto;
-              background-color: #fff;
-              padding: 20px;
-              border-radius: 10px;
-              box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              color: #800080; /* Purple Color for "I Start School" */
-              position: relative;
-            }
-            .header h1 {
-              font-size: 36px;
-              color: #800080; /* Purple Color */
-            }
-            .header h5 {
-              color: #0000FF; /* Blue Color for "Admit Card" */
-            }
-            .student-info {
-              margin-bottom: 20px;
-            }
-            .student-info p {
-              font-size: 16px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 20px;
-            }
-            table, th, td {
-              border: 1px solid #ddd;
-              padding: 8px;
-              text-align: center;
-            }
-            th {
-              background-color: #4CAF50;
-              color: white;
-            }
-            tr:nth-child(even) {
-              background-color: #f2f2f2;
-            }
-            .logo {
-              position: absolute;
-              top: 10px; /* Adjust logo to be higher */
-              right: 10px;
-              width: 100px;
-              height: auto;
-              margin-bottom: 20px; /* Add bottom margin for spacing */
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <img src="https://res.cloudinary.com/dokfnv3vy/image/upload/v1736084543/custom/yhbii0wbedftmpvlpnon.jpg" class="logo" alt="Logo" />
-              <h1>I Start School</h1>
-              <h5>Admit Card</h5>
-            </div>
-            <div class="student-info">
-              <p><strong>Student Name:</strong> ${student.firstName} ${student.lastName}</p>
-              <p><strong>Class:</strong> ${student.class}</p>
-              <p><strong>Section:</strong> ${student.section}</p>
-              <p><strong>Roll Number:</strong> ${student.roll}</p>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>S.No.</th>
-                  <th>Exam Title</th>
-                  <th>Subject</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${examRows}
-              </tbody>
-            </table>
-          </div>
-        </body>
-        </html>
-      `;
-  
-      // Launch Puppeteer to convert HTML to PDF
-      const browser = await puppeteer.launch({ headless: true });
-      const page = await browser.newPage();
-      await page.setContent(htmlContent);
-  
-      // Set headers for PDF download
-      const filename = `AdmitCard_${student.firstName}_${student.lastName}.pdf`;
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Type', 'application/pdf');
-  
-      // Generate PDF from the HTML content
-      const pdfBuffer = await page.pdf({ format: 'A4' });
-  
-      // Send the PDF buffer as a response
-      res.end(pdfBuffer);  // Make sure to use `res.end()` to properly finalize the response
-  
-      await browser.close();
-    } catch (error) {
-      // Handle errors during the fetch operation
-      console.error('Error generating admit card:', error);
-      res.status(500).json({ message: 'Error generating admit card', error: error.message });
+
+const getAdmitCard = async (req, res) => {
+  const { studentId } = req.params; // Extract studentId from request parameters
+
+  try {
+    // Fetch the student based on studentId from your DB
+    const student = await Student.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
     }
-  };
+
+    // Fetch exam schedules for the student
+    const examSchedules = await Exam.find({
+      class: student.class,
+      section: student.section,
+      isAdmitCardGenerated: true, // Filter for schedules where admit card is generated
+    });
+
+    if (examSchedules.length === 0) {
+      return res.status(404).json({ message: 'No exam schedules found for the student with admit cards generated' });
+    }
+
+    // Create the HTML content with embedded styles
+    let examRows = examSchedules.map((exam, rowIndex) => {
+      return `
+        <tr>
+          <td>${rowIndex + 1}</td>
+          <td>${exam.examTitle}</td>
+          <td>${exam.subject}</td>
+          <td>${new Date(exam.examDate).toLocaleDateString()}</td>
+          <td>${exam.startTime} - ${exam.endTime}</td>
+          <td>${exam.examType || 'N/A'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admit Card</title>
+        <style>
+          /* Add your CSS styling here */
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <!-- Your HTML content -->
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Use Puppeteer to generate the PDF
+    const browser = await puppeteer.launch({
+      headless: true,
+      executablePath: '/usr/bin/chromium-browser', // Set the path to the Chromium or Chrome binary
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(htmlContent); // Set the HTML content
+
+    // Set headers for the response (PDF download)
+    const filename = `AdmitCard_${student.firstName}_${student.lastName}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+
+    // Generate the PDF buffer
+    const pdfBuffer = await page.pdf({ format: 'A4' });
+
+    // Send the PDF as the response
+    res.end(pdfBuffer);  // Make sure to use `res.end()` to properly finish the response
+
+    await browser.close();  // Close the browser after generating the PDF
+  } catch (error) {
+    console.error('Error generating admit card:', error);
+    res.status(500).json({ message: 'Error generating admit card', error: error.message });
+  }
+};
+
    
 
   const getClassRoutine = async (req, res) => {
