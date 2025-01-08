@@ -14,6 +14,7 @@ import dotenv from 'dotenv';
 import Transport from '../Models/Transport.js';
 import generateRefreshToken from '../config/refreshtoken.js';
 import generateToken from '../config/jwtToken.js';
+import puppeteer from 'puppeteer'
 
 dotenv.config()
 
@@ -113,85 +114,144 @@ const getExamScheduleByStudent = async (req, res) => {
         return res.status(404).json({ message: 'No exam schedules found for the student with admit cards generated' });
       }
   
-      // Create a new PDF document
-      const doc = new PDFDocument({ margin: 30 });
+      // Create the HTML template with embedded styles
+      let examRows = examSchedules.map((exam, rowIndex) => {
+        return `
+          <tr>
+            <td>${rowIndex + 1}</td>
+            <td>${exam.examTitle}</td>
+            <td>${exam.subject}</td>
+            <td>${new Date(exam.examDate).toLocaleDateString()}</td>
+            <td>${exam.startTime} - ${exam.endTime}</td>
+            <td>${exam.examType || 'N/A'}</td>
+          </tr>
+        `;
+      }).join('');
   
-      // Set response headers for PDF download
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Admit Card</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              background-color: #f4f4f4;
+              margin: 0;
+              padding: 20px;
+            }
+            .container {
+              max-width: 800px;
+              margin: 0 auto;
+              background-color: #fff;
+              padding: 20px;
+              border-radius: 10px;
+              box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              color: #800080; /* Purple Color for "I Start School" */
+              position: relative;
+            }
+            .header h1 {
+              font-size: 36px;
+              color: #800080; /* Purple Color */
+            }
+            .header h5 {
+              color: #0000FF; /* Blue Color for "Admit Card" */
+            }
+            .student-info {
+              margin-bottom: 20px;
+            }
+            .student-info p {
+              font-size: 16px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            table, th, td {
+              border: 1px solid #ddd;
+              padding: 8px;
+              text-align: center;
+            }
+            th {
+              background-color: #4CAF50;
+              color: white;
+            }
+            tr:nth-child(even) {
+              background-color: #f2f2f2;
+            }
+            .logo {
+              position: absolute;
+              right: 10px;
+              width: 100px;
+              height: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src="https://res.cloudinary.com/dokfnv3vy/image/upload/v1736084543/custom/yhbii0wbedftmpvlpnon.jpg" class="logo" alt="Logo" />
+              <h1>I Start School</h1>
+              <h5>Admit Card</h5>
+            </div>
+            <div class="student-info">
+              <p><strong>Student Name:</strong> ${student.firstName} ${student.lastName}</p>
+              <p><strong>Class:</strong> ${student.class}</p>
+              <p><strong>Section:</strong> ${student.section}</p>
+              <p><strong>Roll Number:</strong> ${student.roll}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>S.No.</th>
+                  <th>Exam Title</th>
+                  <th>Subject</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${examRows}
+              </tbody>
+            </table>
+          </div>
+        </body>
+        </html>
+      `;
+  
+      // Launch Puppeteer to convert HTML to PDF
+      const browser = await puppeteer.launch({ headless: true });
+      const page = await browser.newPage();
+      await page.setContent(htmlContent);
+  
+      // Set headers for PDF download
       const filename = `AdmitCard_${student.firstName}_${student.lastName}.pdf`;
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Type', 'application/pdf');
   
-      // Add header
-      doc.fontSize(20).text('Admit Card', { align: 'center' }).moveDown(2);
+      // Generate PDF from the HTML content
+      const pdfBuffer = await page.pdf({ format: 'A4' });
   
-      // Add student details
-      doc
-        .fontSize(14)
-        .text(`Student Name: ${student.firstName} ${student.lastName}`, { align: 'left' })
-        .text(`Class: ${student.class}`, { align: 'left' })
-        .text(`Section: ${student.section}`, { align: 'left' })
-        .text(`Roll Number: ${student.rollNumber}`, { align: 'left' })
-        .moveDown(2);
+      // Send the PDF buffer as a response
+      res.end(pdfBuffer);  // Make sure to use `res.end()` to properly finalize the response
   
-      // Table Headers
-      const tableHeaders = ['S.No.', 'Exam Title', 'Subject', 'Date', 'Time', 'Type'];
-      const columnWidths = [50, 100, 100, 100, 150, 100]; // Define column widths
-      let startX = 50; // Start position for the table
-      let startY = doc.y;
-  
-      // Draw table headers
-      doc.fontSize(12).font('Helvetica-Bold');
-      tableHeaders.forEach((header, index) => {
-        doc.text(header, startX, startY, { width: columnWidths[index], align: 'center' });
-        startX += columnWidths[index];
-      });
-  
-      // Draw line below headers
-      startY += 20; // Move down for row height
-      doc
-        .moveTo(50, startY - 10)
-        .lineTo(550, startY - 10)
-        .strokeColor('black')
-        .lineWidth(1)
-        .stroke();
-  
-      // Reset starting X for rows
-      startX = 50;
-  
-      // Draw table rows
-      doc.font('Helvetica').fontSize(10);
-      examSchedules.forEach((exam, rowIndex) => {
-        const rowHeight = 20;
-  
-        const rowData = [
-          rowIndex + 1,
-          exam.examTitle,
-          exam.subject,
-          new Date(exam.examDate).toLocaleDateString(),
-          `${exam.startTime} - ${exam.endTime}`,
-          exam.examType || 'N/A',
-        ];
-  
-        rowData.forEach((data, colIndex) => {
-          doc.text(data, startX, startY, { width: columnWidths[colIndex], align: 'center' });
-          startX += columnWidths[colIndex];
-        });
-  
-        // Move down to the next row
-        startY += rowHeight;
-        startX = 50; // Reset X position for the next row
-      });
-  
-      // Pipe the PDF to the response
-      doc.pipe(res);
-      doc.end();
+      await browser.close();
     } catch (error) {
       // Handle errors during the fetch operation
+      console.error('Error generating admit card:', error);
       res.status(500).json({ message: 'Error generating admit card', error: error.message });
     }
   };
   
-
+  
   const getClassRoutine = async (req, res) => {
     const { studentId } = req.params;  // Get studentId from request params
   
