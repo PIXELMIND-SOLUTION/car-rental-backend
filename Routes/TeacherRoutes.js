@@ -2,7 +2,7 @@ import express from 'express'
 const router = express.Router();
 
 import {
-    markAttendanceForClass,
+    markAttendanceForStudent,
     postMarksForStudent,
     addExamSchedule,
     getStudentsAttendance,
@@ -20,7 +20,7 @@ import {
 } from '../Controller/TeacherController.js';
 
 
-router.post('/add-attendance', markAttendanceForClass);
+router.post('/add-attendance/:studentId', markAttendanceForStudent);
 router.post('/add-marks/:studentId', postMarksForStudent);
 router.post('/exam-schedule', addExamSchedule);
 router.get('/get-attendance', getStudentsAttendance);

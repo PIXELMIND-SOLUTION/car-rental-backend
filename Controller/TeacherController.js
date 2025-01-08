@@ -228,48 +228,45 @@ const getSyllabus = async (req, res) => {
     }
   };
 
-  const markAttendanceForClass = asyncHandler(async (req, res) => {
-    const { class: className, section, date, subject, attendanceStatus } = req.body;  // Add subject
+  const markAttendanceForStudent = asyncHandler(async (req, res) => {
+    const { studentId } = req.params; // Extract studentId from params
+    const { date, subject, attendanceStatus } = req.body; // Extract fields from body
 
-    // Step 1: Fetch students based on class and section
-    const students = await Student.find({ class: className, section });
+    // Step 1: Find the student by ID
+    const student = await Student.findById(studentId);
 
-    if (!students || students.length === 0) {
-        return res.status(404).json({ message: "No students found for this class and section" });
+    if (!student) {
+        return res.status(404).json({ message: "Student not found" });
     }
 
-    // Step 2: Update attendance for each student
-    const bulkUpdates = students.map(async (student) => {
-        // Check if attendance for the specific date and subject already exists
-        const existingAttendance = student.attendance.find(
-            (att) => 
-                att.date.toISOString().split('T')[0] === new Date(date).toISOString().split('T')[0] &&
-                att.subject === subject  // Match by subject
-        );
+    // Step 2: Check if attendance for the specific date and subject already exists
+    const existingAttendance = student.attendance.find(
+        (att) =>
+            att.date.toISOString().split("T")[0] === new Date(date).toISOString().split("T")[0] &&
+            att.subject === subject // Match by subject
+    );
 
-        if (existingAttendance) {
-            // Update existing attendance for this subject and date
-            existingAttendance.attendanceStatus = attendanceStatus;
-        } else {
-            // Add new attendance record with subject
-            student.attendance.push({
-                date,
-                subject,  // Add subject to the attendance
-                attendanceStatus,
-            });
-        }
+    if (existingAttendance) {
+        // Update existing attendance for this subject and date
+        existingAttendance.attendanceStatus = attendanceStatus;
+    } else {
+        // Add new attendance record with subject
+        student.attendance.push({
+            date,
+            subject, // Add subject to the attendance
+            attendanceStatus,
+        });
+    }
 
-        return student.save();  // Save updated student
-    });
-
-    // Wait for all updates to complete
-    const results = await Promise.all(bulkUpdates);
+    // Step 3: Save the updated student record
+    await student.save();
 
     res.status(200).json({
         message: "Attendance updated successfully",
-        updatedStudents: results,
+        student,
     });
 });
+
 
 
 const postMarksForStudent = asyncHandler(async (req, res) => {
@@ -778,7 +775,7 @@ export { getTeachers,
       addAttendance,
       addHomework,
       getHomework,
-      markAttendanceForClass,
+      markAttendanceForStudent,
       postMarksForStudent,
       addExamSchedule,
       updateAttendance,
