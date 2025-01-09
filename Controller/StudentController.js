@@ -9,7 +9,7 @@ import Syllabus from '../Models/Syllabus.js';
 import Marks from '../Models/Mark.js';
 import Notice from '../Models/Notice.js';
 import jwt from 'jsonwebtoken'
-import puppeteer from 'puppeteer-core'; // Ensure you are using `puppeteer-core` instead of `puppeteer`
+import PDFDocument from 'pdfkit';
 import dotenv from 'dotenv';
 import Transport from '../Models/Transport.js';
 import generateRefreshToken from '../config/refreshtoken.js';
@@ -91,90 +91,55 @@ const getExamScheduleByStudent = async (req, res) => {
     }
   };
 
-
-const getAdmitCard = async (req, res) => {
-  const { studentId } = req.params; // Extract studentId from request parameters
-
-  try {
-    // Fetch the student based on studentId from your DB
-    const student = await Student.findById(studentId);
-
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+  const getAdmitCard = async (req, res) => {
+    const { studentId } = req.params; // Extract studentId from params
+  
+    try {
+        // Fetch the student based on studentId
+        const student = await Student.findById(studentId);
+  
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+  
+        // Fetch the exam schedules based on student's class and section and filter for isAdmitCardGenerated: true
+        const examSchedules = await Exam.find({
+            class: student.class,
+            section: student.section,
+            isAdmitCardGenerated: true, // Filter for schedules where admit card is generated
+        });
+  
+        if (examSchedules.length === 0) {
+            return res.status(404).json({ message: 'No exam schedules found for the student with admit cards generated' });
+        }
+  
+        // Prepare the JSON response
+        const admitCardData = {
+            studentDetails: {
+                name: `${student.firstName} ${student.lastName}`,
+                class: student.class,
+                section: student.section,
+                rollNumber: student.rollNumber,
+            },
+            examSchedules: examSchedules.map((exam, index) => ({
+                serialNo: index + 1,
+                examTitle: exam.examTitle,
+                subject: exam.subject,
+                date: new Date(exam.examDate).toLocaleDateString(),
+                time: `${exam.startTime} - ${exam.endTime}`,
+                type: exam.examType || 'N/A',
+            })),
+        };
+  
+        // Send the response in JSON format
+        res.status(200).json(admitCardData);
+    } catch (error) {
+        // Handle errors during the fetch operation
+        res.status(500).json({ message: 'Error generating admit card', error: error.message });
     }
-
-    // Fetch exam schedules for the student
-    const examSchedules = await Exam.find({
-      class: student.class,
-      section: student.section,
-      isAdmitCardGenerated: true, // Filter for schedules where admit card is generated
-    });
-
-    if (examSchedules.length === 0) {
-      return res.status(404).json({ message: 'No exam schedules found for the student with admit cards generated' });
-    }
-
-    // Create the HTML content with embedded styles
-    let examRows = examSchedules.map((exam, rowIndex) => {
-      return `
-        <tr>
-          <td>${rowIndex + 1}</td>
-          <td>${exam.examTitle}</td>
-          <td>${exam.subject}</td>
-          <td>${new Date(exam.examDate).toLocaleDateString()}</td>
-          <td>${exam.startTime} - ${exam.endTime}</td>
-          <td>${exam.examType || 'N/A'}</td>
-        </tr>
-      `;
-    }).join('');
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admit Card</title>
-        <style>
-          /* Add your CSS styling here */
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <!-- Your HTML content -->
-        </div>
-      </body>
-      </html>
-    `;
-
-    // Use Puppeteer to generate the PDF
-    const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: '/usr/bin/chromium-browser', // Set the path to the Chromium or Chrome binary
-    });
-
-    const page = await browser.newPage();
-    await page.setContent(htmlContent); // Set the HTML content
-
-    // Set headers for the response (PDF download)
-    const filename = `AdmitCard_${student.firstName}_${student.lastName}.pdf`;
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', 'application/pdf');
-
-    // Generate the PDF buffer
-    const pdfBuffer = await page.pdf({ format: 'A4' });
-
-    // Send the PDF as the response
-    res.end(pdfBuffer);  // Make sure to use `res.end()` to properly finish the response
-
-    await browser.close();  // Close the browser after generating the PDF
-  } catch (error) {
-    console.error('Error generating admit card:', error);
-    res.status(500).json({ message: 'Error generating admit card', error: error.message });
-  }
 };
 
-   
+  
 
   const getClassRoutine = async (req, res) => {
     const { studentId } = req.params;  // Get studentId from request params
