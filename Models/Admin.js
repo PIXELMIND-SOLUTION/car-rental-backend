@@ -37,6 +37,27 @@ role: {
     schoolImage: {
       type: String, // URL of the school image stored in Cloudinary
     },
+    schoolName: {
+      type: String,
+    },
+    studentsCount: {
+      type: Number,
+    },
+    contactPersonName: {
+      type: String,
+    },
+    contactPersonDesignation: {
+      type: String,
+    },
+    contactPersonEmail: {
+      type: String,
+    },
+    contactPersonMobileNumber: {
+      type: String,
+    },
+    fullAddress: {
+      type: String,
+    },
   }, { timestamps: true });
   
   const Admin = mongoose.model('Admin', adminSchema);

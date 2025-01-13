@@ -78,7 +78,8 @@ import {
   getAllMarks,
   addStaff,
   getAllStaff,
-  updateSchoolDetails
+  updateSchoolDetails,
+  createSchool
 } from '../Controller/AdminController.js'
 
 // Configure multer for file uploads
@@ -171,6 +172,7 @@ router.get('/drivers', getDrivers);
 router.get('/marks', getAllMarks);
 router.post('/add-staff', addStaff);
 router.get('/staffs', getAllStaff);
+router.post('/schools', createSchool);
 router.post('/settings', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'schoolImage', maxCount: 1 }]), updateSchoolDetails);
 
 

@@ -2651,6 +2651,41 @@ if (req.files['schoolImage']) {
   }
 };
 
+// Controller to create a new school
+const createSchool = async (req, res) => {
+  try {
+    const {
+      schoolName,
+      studentsCount,
+      contactPersonName,
+      contactPersonDesignation,
+      contactPersonEmail,
+      contactPersonMobileNumber,
+      fullAddress,
+    } = req.body;
+
+    // Create a new school document
+    const school = new Admin({
+      schoolName,
+      studentsCount,
+      contactPersonName,
+      contactPersonDesignation,
+      contactPersonEmail,
+      contactPersonMobileNumber,
+      fullAddress,
+    });
+
+    // Save the school document to the database
+    const savedSchool = await school.save();
+
+    res.status(201).json({ message: 'School created successfully.', data: savedSchool });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'An error occurred while creating the school.', error: error.message });
+  }
+};
+
+
 export { 
   adminRegistration,
    adminLogin,
@@ -2745,5 +2780,6 @@ export {
       getAllMarks,
       addStaff,
       getAllStaff,
-      updateSchoolDetails
+      updateSchoolDetails,
+      createSchool
 }
