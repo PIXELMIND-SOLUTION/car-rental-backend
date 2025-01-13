@@ -2686,6 +2686,126 @@ const createSchool = async (req, res) => {
 };
 
 
+const addFee = async (req, res) => {
+  try {
+    const { studentId, feesType, invoiceNumber, status, amount, paidAmount, paymentMethod, paidDate, pendingPayment } = req.body;
+
+    // Check if the student exists
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Create a new fee entry
+    const fee = new Fee({
+      studentId,
+      feesType,
+      invoiceNumber,
+      status,
+      amount,
+      paidAmount,
+      paymentMethod,
+      paidDate,
+      pendingPayment,
+    });
+
+    // Save the fee entry
+    const savedFee = await fee.save();
+
+    // Add the full fee details to the student's fees array
+    student.fees.push({
+      feesType: savedFee.feesType,
+      invoiceNumber: savedFee.invoiceNumber,
+      status: savedFee.status,
+      amount: savedFee.amount,
+      paidAmount: savedFee.paidAmount,
+      paymentMethod: savedFee.paymentMethod,
+      paidDate: savedFee.paidDate,
+      pendingPayment: savedFee.pendingPayment,
+      // Include other fields as needed
+    });
+
+    // Save the updated student document
+    await student.save();
+
+    // Return the response with the added fee
+    res.status(201).json({ message: "Fee added successfully", fee: savedFee });
+  } catch (error) {
+    res.status(500).json({ message: "Error adding fee", error: error.message });
+  }
+};
+
+
+const getFeeDetails = async (req, res) => {
+  try {
+    // Find all fee entries and populate the studentId field with student details
+    const fees = await Fee.find()
+      .populate('studentId', 'firstName lastName roll class section'); // Populating student details (only necessary fields)
+
+    if (!fees || fees.length === 0) {
+      return res.status(404).json({ message: "No fee records found" });
+    }
+
+    // Send the fee details along with student details
+    res.status(200).json({ message: "Fee details fetched successfully", fees });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching fee details", error: error.message });
+  }
+};
+
+
+
+// Controller to get unique classes
+const getStudentClasses = async (req, res) => {
+  try {
+    // Fetch distinct classes from the Student model
+    const classes = await Student.distinct('class');  // 'class' is the field we want distinct values for
+
+    if (!classes.length) {
+      return res.status(404).json({ message: "No classes found." });
+    }
+
+    return res.status(200).json({ classes });
+  } catch (error) {
+    console.error("Error fetching classes:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+const getStudentByFilter = async (req, res) => {
+  try {
+    // Destructure 'class' (from query params) and 'section' (from query params)
+    const { class: className, section } = req.query;
+
+    // Check if the className and section are valid and sanitize input (optional)
+    const query = {};
+    if (className) query.class = className.trim();  // Use .trim() to remove any extra spaces
+    if (section) query.section = section.trim();  // Use .trim() to remove any extra spaces
+
+    // Fetch students based on class and section filter
+    const students = await Student.find(query).select('firstName lastName roll gender class section');
+
+    // Modify each student to include fullName by concatenating firstName and lastName
+    const modifiedStudents = students.map(student => ({
+      ...student.toObject(),
+      fullName: `${student.firstName} ${student.lastName}`,
+    }));
+
+    // Return success response with the list of students
+    if (modifiedStudents.length > 0) {
+      res.status(200).json({ message: 'Students fetched successfully', students: modifiedStudents });
+    } else {
+      res.status(404).json({ message: 'No students found for the given class and section.' });
+    }
+  } catch (error) {
+    // Handle errors during the fetch operation
+    res.status(500).json({ message: 'Error fetching students', error: error.message });
+  }
+};
+
+
+
 export { 
   adminRegistration,
    adminLogin,
@@ -2781,5 +2901,9 @@ export {
       addStaff,
       getAllStaff,
       updateSchoolDetails,
-      createSchool
+      createSchool,
+      addFee,
+      getFeeDetails,
+      getStudentByFilter,
+      getStudentClasses
 }

@@ -16,8 +16,17 @@ const studentSchema = new mongoose.Schema({
       status: { type: String, enum: ['Present', 'Absent', 'Late'], default: 'Present' }
     }
   ],
-  fees: { type: mongoose.Schema.Types.ObjectId, ref: 'Fee' },
-  role: { type: String, default: 'Student' },
+fees: [{
+    feesType: String,
+    invoiceNumber: String,
+    status: String,
+    amount: Number,
+    paidAmount: Number,
+    paymentMethod: String,
+    paidDate: Date,
+    pendingPayment: Number,
+  }],
+    role: { type: String, default: 'Student' },
   academicYear: {
     type: String
   },
