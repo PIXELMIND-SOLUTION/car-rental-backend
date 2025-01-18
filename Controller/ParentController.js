@@ -7,6 +7,7 @@ import Assignment from '../Models/Assignment.js'
 import Notice from '../Models/Notice.js'
 import Routine from '../Models/Routine.js'
 import Leave from '../Models/Leave.js'
+import Marks from '../Models/Mark.js'
 import generateRefreshToken from '../config/refreshtoken.js';
 import generateToken from '../config/jwtToken.js';
 import asyncHandler from 'express-async-handler'
@@ -194,28 +195,105 @@ const getStudentLeaves = async (req, res) => {
 
 // Get student marks
 const getStudentMarks = async (req, res) => {
-    const { parentId, studentId } = req.params;
+  const { studentId } = req.params;
 
-    try {
-        // Verify parent and student relationship
-        const parent = await Parent.findById(parentId);
-        if (!parent || !parent.myStudents.includes(studentId)) {
-            return res.status(403).json({ message: 'Unauthorized access' });
-        }
+  try {
+    // Step 1: Fetch student marks and profile information based on studentId
+    const studentMarks = await Marks.find({ studentId }).populate(
+      "studentId",
+      "firstName lastName class roll section fatherName motherName"
+    );
 
-        const student = await Student.findById(studentId).select('marks');
-        if (!student) {
-            return res.status(404).json({ message: 'Student not found' });
-        }
-
-        res.status(200).json({
-            message: 'Marks details fetched successfully',
-            marks: student.marks,
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!studentMarks || studentMarks.length === 0) {
+      return res.status(404).json({ message: "Marks not found for this student" });
     }
+
+    const student = studentMarks[0].studentId;
+    const studentClass = student.class;
+    const studentSection = student.section;
+
+    // Step 2: Retrieve all marks for the same class and section
+    const allMarks = await Marks.find().populate(
+      "studentId",
+      "firstName lastName class roll section fatherName motherName"
+    );
+
+    const filteredMarks = allMarks.filter(
+      (mark) =>
+        mark.studentId?.class === studentClass && mark.studentId?.section === studentSection
+    );
+
+    if (!filteredMarks || filteredMarks.length === 0) {
+      return res.status(404).json({ message: "No marks found for this class and section" });
+    }
+
+    // Step 3: Group marks by students and calculate totals
+    const studentMarksData = {};
+
+    filteredMarks.forEach((mark) => {
+      const studentId = mark.studentId._id.toString();
+      
+      if (!studentMarksData[studentId]) {
+        studentMarksData[studentId] = {
+          student: mark.studentId,
+          totalObtainedMarks: 0,
+          totalMarks: 0,
+        };
+      }
+
+      studentMarksData[studentId].totalObtainedMarks += mark.marksObtained;
+      studentMarksData[studentId].totalMarks += mark.totalMarks;
+    });
+
+    // Step 4: Find the topper
+    let topper = null;
+
+    Object.values(studentMarksData).forEach((data) => {
+      if (
+        !topper ||
+        data.totalObtainedMarks > topper.totalObtainedMarks
+      ) {
+        topper = data;
+      }
+    });
+
+    if (topper) {
+      topper.overallPercentage = (
+        (topper.totalObtainedMarks / topper.totalMarks) *
+        100
+      ).toFixed(2);
+    }
+
+    // Step 5: Calculate the student’s percentage for comparison
+    const studentTotalMarks = studentMarks[0].totalMarks;
+    const studentObtainedMarks = studentMarks[0].marksObtained;
+    const studentPercentage = ((studentObtainedMarks / studentTotalMarks) * 100).toFixed(2);
+
+    // Step 6: Prepare comparison result
+    const comparisonResult = {
+      student: student,
+      studentPercentage,
+      topper: topper.student,
+      topperPercentage: topper.overallPercentage,
+      comparison: studentPercentage >= topper.overallPercentage 
+        ? "Your children are above or equal to the topper" 
+        : "Your children are below the topper",
+      suggestion:
+        studentPercentage >= topper.overallPercentage
+          ? "Encourage your child to maintain their excellent performance by engaging in advanced learning resources and extracurricular activities."
+          : "Support your child by identifying areas for improvement. Regular study schedules, engaging a tutor, or providing additional resources could help them achieve better results.",
+    };
+
+    res.status(200).json({
+      message: "Comparison with topper retrieved successfully",
+      comparisonResult,
+    });
+  } catch (error) {
+    console.error("Error comparing topper:", error);
+    res.status(500).json({ message: "Failed to compare with topper" });
+  }
 };
+
 
 // Get student exam schedule
 const getStudentExamSchedule = async (req, res) => {

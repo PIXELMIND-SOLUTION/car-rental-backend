@@ -2547,6 +2547,80 @@ const getAllMarks = asyncHandler(async (req, res) => {
   }
 });
 
+const getClassSectionTopper = asyncHandler(async (req, res) => {
+  const { class: classFilter, section } = req.query; // Extract class and section from query params
+
+  try {
+    // Step 1: Retrieve all marks and populate student details
+    const marks = await Marks.find().populate(
+      "studentId",
+      "firstName lastName class roll section fatherName motherName"
+    );
+
+    // Filter marks based on class and section
+    const filteredMarks = marks.filter(
+      (mark) =>
+        mark.studentId?.class === classFilter &&
+        mark.studentId?.section === section
+    );
+
+    if (!filteredMarks || filteredMarks.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No marks found for this class and section" });
+    }
+
+    // Step 2: Group marks by students and calculate totals
+    const studentMarks = {};
+
+    filteredMarks.forEach((mark) => {
+      const studentId = mark.studentId?._id?.toString() || mark.studentId || "Unknown";
+
+      if (!studentMarks[studentId]) {
+        studentMarks[studentId] = {
+          student: mark.studentId || { firstName: "N/A", lastName: "N/A" },
+          totalObtainedMarks: 0,
+          totalMarks: 0,
+        };
+      }
+
+      // Update total obtained marks and total marks
+      studentMarks[studentId].totalObtainedMarks += mark.marksObtained;
+      studentMarks[studentId].totalMarks += mark.totalMarks;
+    });
+
+    // Step 3: Find the student with the highest total obtained marks
+    let topper = null;
+
+    Object.values(studentMarks).forEach((student) => {
+      if (
+        !topper ||
+        student.totalObtainedMarks > topper.totalObtainedMarks
+      ) {
+        topper = student;
+      }
+    });
+
+    // Step 4: Calculate the topper's overall percentage
+    if (topper) {
+      topper.overallPercentage = (
+        (topper.totalObtainedMarks / topper.totalMarks) *
+        100
+      ).toFixed(2);
+    }
+
+    // Step 5: Respond with the topper's details
+    res.status(200).json({
+      message: `Topper for Class ${classFilter} Section ${section} retrieved successfully`,
+      topper,
+    });
+  } catch (error) {
+    console.error("Error retrieving topper:", error);
+    res.status(500).json({ message: "Failed to retrieve topper" });
+  }
+});
+
+
 
 
 // Controller to add a new staff member
@@ -2805,6 +2879,42 @@ const getStudentByFilter = async (req, res) => {
 };
 
 
+const promoteStudent = async (req, res) => {
+  const { studentId } = req.params; // Extract studentId from route params
+  const { newClass, section, roll, message } = req.body; // Extract other fields from request body
+
+  try {
+    // Find and update the student's details
+    const updatedStudent = await Student.findByIdAndUpdate(
+      studentId,
+      {
+        class: newClass,
+        section,
+        roll,
+      },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedStudent) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: message || "Student promoted successfully",
+      updatedStudent,
+    });
+  } catch (error) {
+    console.error("Error promoting student:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error. Please try again later.",
+    });
+  }
+};
+
 
 export { 
   adminRegistration,
@@ -2905,5 +3015,7 @@ export {
       addFee,
       getFeeDetails,
       getStudentByFilter,
-      getStudentClasses
+      getStudentClasses,
+      promoteStudent,
+      getClassSectionTopper
 }

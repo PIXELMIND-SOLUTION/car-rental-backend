@@ -82,7 +82,9 @@ import {
   createSchool,
   addFee,
   getStudentByFilter,
-  getFeeDetails
+  getFeeDetails,
+  promoteStudent,
+  getClassSectionTopper
 } from '../Controller/AdminController.js'
 
 // Configure multer for file uploads
@@ -179,6 +181,8 @@ router.post('/schools', createSchool);
 router.post('/add-fees', addFee);
 router.get('/fees', getFeeDetails);
 router.get('/get-students', getStudentByFilter);
+router.put("/promote/:studentId", promoteStudent);
+router.get("/topper", getClassSectionTopper);
 router.post('/settings', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'schoolImage', maxCount: 1 }]), updateSchoolDetails);
 
 

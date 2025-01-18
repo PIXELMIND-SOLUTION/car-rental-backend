@@ -298,12 +298,30 @@ const getHomeworkByStudent = async (req, res) => {
     }
 
     // Step 2: Retrieve the attendance array
-    const attendance = student.attendance;
+    const attendance = student.attendance; // Example format: [{ date: "2023-01-01", status: "present" }, { date: "2023-01-02", status: "absent" }]
 
-    // Step 3: Respond with the attendance data
+    if (!attendance || attendance.length === 0) {
+        return res.status(200).json({
+            message: "No attendance records found",
+            attendance: [],
+            percentage: 0,
+        });
+    }
+
+    // Step 3: Calculate total classes and attended classes
+    const totalClasses = attendance.length;
+    const attendedClasses = attendance.filter(record => record.attendanceStatus === "Present").length;
+
+    // Step 4: Calculate attendance percentage
+    const percentage = ((attendedClasses / totalClasses) * 100).toFixed(2); // Rounded to 2 decimal places
+
+    // Step 5: Respond with the attendance data and percentage
     res.status(200).json({
         message: "Attendance retrieved successfully",
         attendance,
+        totalClasses,
+        attendedClasses,
+        percentage: `${percentage}%`,
     });
 });
 
