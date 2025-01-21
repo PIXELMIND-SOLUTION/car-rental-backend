@@ -18,6 +18,7 @@ import { parentLogin,
     getClassRoutineForParent,
     getStudentSubjects, 
     applyLeave,
+    getStudentMark,
     getStudentDetails} from '../Controller/ParentController.js';
 
 
@@ -26,6 +27,7 @@ router.get('/my-child-transport/:parentId/:studentId', getStudentTransport)
 router.get('/my-child-attendance/:parentId/:studentId', getStudentAttendance)
 router.get('/my-child-leaves/:parentId/:studentId', getStudentLeaves)
 router.get('/my-child-marks/:studentId', getStudentMarks)
+router.get('/my-child-mark/:studentId', getStudentMark)
 router.get('/my-child-examshedule/:parentId/:studentId', getStudentExamSchedule)
 router.get('/my-child-subjects/:parentId/:studentId', getStudentSubjects)
 router.get('/my-child-lesson/:parentId/:studentId', getLessonsForParent)

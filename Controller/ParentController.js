@@ -193,7 +193,6 @@ const getStudentLeaves = async (req, res) => {
     }
 };
 
-// Get student marks
 const getStudentMarks = async (req, res) => {
   const { studentId } = req.params;
 
@@ -227,65 +226,101 @@ const getStudentMarks = async (req, res) => {
       return res.status(404).json({ message: "No marks found for this class and section" });
     }
 
-    // Step 3: Group marks by students and calculate totals
-    const studentMarksData = {};
-
+    // Step 3: Prepare subject-wise comparison data
+    const subjectComparison = {};
     filteredMarks.forEach((mark) => {
-      const studentId = mark.studentId._id.toString();
-      
-      if (!studentMarksData[studentId]) {
-        studentMarksData[studentId] = {
-          student: mark.studentId,
-          totalObtainedMarks: 0,
-          totalMarks: 0,
-        };
+      if (!subjectComparison[mark.subject]) {
+        subjectComparison[mark.subject] = [];
       }
-
-      studentMarksData[studentId].totalObtainedMarks += mark.marksObtained;
-      studentMarksData[studentId].totalMarks += mark.totalMarks;
+      subjectComparison[mark.subject].push({
+        studentId: mark.studentId._id.toString(),
+        student: mark.studentId,
+        marksObtained: mark.marksObtained,
+        totalMarks: mark.totalMarks,
+      });
     });
 
-    // Step 4: Find the topper
-    let topper = null;
+    const subjectResults = [];
+    let studentTotalObtainedMarks = 0;
+    let studentTotalMarks = 0;
 
-    Object.values(studentMarksData).forEach((data) => {
-      if (
-        !topper ||
-        data.totalObtainedMarks > topper.totalObtainedMarks
-      ) {
-        topper = data;
+    for (const subject in subjectComparison) {
+      const subjectMarks = subjectComparison[subject];
+
+      // Find the topper for the subject
+      let subjectTopper = null;
+      subjectMarks.forEach((entry) => {
+        if (!subjectTopper || entry.marksObtained > subjectTopper.marksObtained) {
+          subjectTopper = entry;
+        }
+      });
+
+      // Get the student's marks for the subject
+      const studentSubjectMarks = subjectMarks.find(
+        (entry) => entry.studentId === student._id.toString()
+      );
+
+      if (studentSubjectMarks) {
+        studentTotalObtainedMarks += studentSubjectMarks.marksObtained;
+        studentTotalMarks += studentSubjectMarks.totalMarks;
+
+        const studentPercentage = (
+          (studentSubjectMarks.marksObtained / studentSubjectMarks.totalMarks) *
+          100
+        ).toFixed(2);
+        const topperPercentage = (
+          (subjectTopper.marksObtained / subjectTopper.totalMarks) *
+          100
+        ).toFixed(2);
+
+        subjectResults.push({
+          subject,
+          studentMarks: studentSubjectMarks.marksObtained,
+          studentPercentage,
+          topperMarks: subjectTopper.marksObtained,
+          topperPercentage,
+          comparison:
+            studentPercentage >= topperPercentage
+              ? "Your child is above or equal to the topper in this subject"
+              : "Your child is below the topper in this subject",
+        });
       }
-    });
-
-    if (topper) {
-      topper.overallPercentage = (
-        (topper.totalObtainedMarks / topper.totalMarks) *
-        100
-      ).toFixed(2);
     }
 
-    // Step 5: Calculate the student’s percentage for comparison
-    const studentTotalMarks = studentMarks[0].totalMarks;
-    const studentObtainedMarks = studentMarks[0].marksObtained;
-    const studentPercentage = ((studentObtainedMarks / studentTotalMarks) * 100).toFixed(2);
+    // Step 4: Calculate overall comparison
+    const studentPercentage = (
+      (studentTotalObtainedMarks / studentTotalMarks) *
+      100
+    ).toFixed(2);
 
-    // Step 6: Prepare comparison result
+    const topperOverallMarks = subjectResults.reduce(
+      (acc, subject) => acc + subject.topperMarks,
+      0
+    );
+    const topperTotalMarks = subjectResults.reduce(
+      (acc, subject) => acc + subject.topperMarks * (100 / subject.topperPercentage),
+      0
+    );
+    const topperOverallPercentage = ((topperOverallMarks / topperTotalMarks) * 100).toFixed(2);
+
     const comparisonResult = {
-      student: student,
+      student,
       studentPercentage,
-      topper: topper.student,
-      topperPercentage: topper.overallPercentage,
-      comparison: studentPercentage >= topper.overallPercentage 
-        ? "Your children are above or equal to the topper" 
-        : "Your children are below the topper",
+      topper: subjectResults[0]?.topper,
+      topperPercentage: topperOverallPercentage,
+      overallComparison:
+        studentPercentage >= topperOverallPercentage
+          ? "Your children are above or equal to the topper overall"
+          : "Your children are below the topper overall",
+      subjectWiseComparison: subjectResults,
       suggestion:
-        studentPercentage >= topper.overallPercentage
+        studentPercentage >= topperOverallPercentage
           ? "Encourage your child to maintain their excellent performance by engaging in advanced learning resources and extracurricular activities."
           : "Support your child by identifying areas for improvement. Regular study schedules, engaging a tutor, or providing additional resources could help them achieve better results.",
     };
 
     res.status(200).json({
-      message: "Comparison with topper retrieved successfully",
+      message: "Subject-wise comparison with topper retrieved successfully",
       comparisonResult,
     });
   } catch (error) {
@@ -293,6 +328,93 @@ const getStudentMarks = async (req, res) => {
     res.status(500).json({ message: "Failed to compare with topper" });
   }
 };
+
+
+const getStudentMark = async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    // Step 1: Fetch student marks and profile information based on studentId
+    const studentMarks = await Marks.find({ studentId }).populate(
+      "studentId",
+      "firstName lastName class roll section fatherName motherName"
+    );
+
+    if (!studentMarks || studentMarks.length === 0) {
+      return res.status(404).json({ message: "Marks not found for this student" });
+    }
+
+    const student = studentMarks[0].studentId;
+    const studentClass = student.class;
+    const studentSection = student.section;
+
+    // Step 2: Retrieve all marks for the same class and section
+    const allMarks = await Marks.find().populate(
+      "studentId",
+      "firstName lastName class roll section fatherName motherName"
+    );
+
+    const filteredMarks = allMarks.filter(
+      (mark) =>
+        mark.studentId?.class === studentClass && mark.studentId?.section === studentSection
+    );
+
+    if (!filteredMarks || filteredMarks.length === 0) {
+      return res.status(404).json({ message: "No marks found for this class and section" });
+    }
+
+    // Step 3: Prepare subject-wise comparison data
+    const subjectComparison = {};
+    filteredMarks.forEach((mark) => {
+      if (!subjectComparison[mark.subject]) {
+        subjectComparison[mark.subject] = [];
+      }
+      subjectComparison[mark.subject].push({
+        studentId: mark.studentId._id.toString(),
+        student: mark.studentId,
+        marksObtained: mark.marksObtained,
+        totalMarks: mark.totalMarks,
+      });
+    });
+
+    const subjectResults = [];
+
+    for (const subject in subjectComparison) {
+      const subjectMarks = subjectComparison[subject];
+
+      // Find the topper for the subject
+      let subjectTopper = null;
+      subjectMarks.forEach((entry) => {
+        if (!subjectTopper || entry.marksObtained > subjectTopper.marksObtained) {
+          subjectTopper = entry;
+        }
+      });
+
+      // Get the student's marks for the subject
+      const studentSubjectMarks = subjectMarks.find(
+        (entry) => entry.studentId === student._id.toString()
+      );
+
+      if (studentSubjectMarks) {
+        subjectResults.push({
+          subject,
+          studentMarks: studentSubjectMarks.marksObtained,
+          topperMarks: subjectTopper.marksObtained,
+          topperId: subjectTopper.studentId, // Adding topper's ID
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: "Subject-wise marks comparison retrieved successfully",
+      comparisonResult: subjectResults,
+    });
+  } catch (error) {
+    console.error("Error comparing subject-wise marks:", error);
+    res.status(500).json({ message: "Failed to compare subject-wise marks" });
+  }
+};
+
 
 
 // Get student exam schedule
@@ -773,5 +895,6 @@ export {
     getSubjectsAndTeachersForParent,
     getClassRoutineForParent,
     applyLeave,
-    getStudentDetails
+    getStudentDetails,
+    getStudentMark
 }
