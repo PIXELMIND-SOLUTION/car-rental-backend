@@ -87,7 +87,8 @@ import {
   getClassSectionTopper,
   addHoliday,
   getHolidays,
-  getAllParents
+  getAllParents,
+  getExamTypes
 } from '../Controller/AdminController.js'
 
 // Configure multer for file uploads
@@ -151,6 +152,7 @@ router.post('/add-homework',upload.single('file'), addHomework); // Middleware f
 router.get('/homeworks', getAllHomework);
 router.post('/assign-vehicle', assignVehicle);
 router.post('/examtype', addExamType);
+router.get('/get-examtype', getExamTypes);
 router.post('/add-exam-schedule', addExamSchedule);
 router.get('/get-exam-schedule', getExamSchedule);
 router.post("/create-seat", createSeatPlan); // Create seat plan

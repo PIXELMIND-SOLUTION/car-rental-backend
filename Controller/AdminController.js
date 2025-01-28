@@ -1036,6 +1036,7 @@ const addStudent = async (req, res) => {
       firstName,
       lastName,
       gender,
+      category,
       dateOfBirth,
       religion,
       caste,

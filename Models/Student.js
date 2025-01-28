@@ -6,6 +6,7 @@ const studentSchema = new mongoose.Schema({
   dob: { type: Date },
   address: { type: String },
   class: { type: String },
+  category: { type: String }, 
   parent: { type: mongoose.Schema.Types.ObjectId, ref: 'Parent' },
   type: {
     type: String,
