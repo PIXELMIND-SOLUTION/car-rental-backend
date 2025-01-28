@@ -84,7 +84,10 @@ import {
   getStudentByFilter,
   getFeeDetails,
   promoteStudent,
-  getClassSectionTopper
+  getClassSectionTopper,
+  addHoliday,
+  getHolidays,
+  getAllParents
 } from '../Controller/AdminController.js'
 
 // Configure multer for file uploads
@@ -114,7 +117,7 @@ router.delete('/delete-section/:id', deleteSection); // Delete section
 router.put('/update-section/:id', updateSection); // Update section
 router.get('/get-section', getSections);
 router.post('/assign-teacher', assignClassTeacher);
-router.get('/get-teacher', getClassTeachers);
+router.get('/get-assign-teacher', getClassTeachers);
 router.post('/assign-subject', assignSubjectTeacher);
 router.get('/get-assign-subject', getSubjectAssignments);
 router.post('/add-classroom', addClassroom);
@@ -183,6 +186,9 @@ router.get('/fees', getFeeDetails);
 router.get('/get-students', getStudentByFilter);
 router.put("/promote/:studentId", promoteStudent);
 router.get("/topper", getClassSectionTopper);
+router.post('/add-holidays', addHoliday);
+router.get('/holidays', getHolidays);
+router.get('/parents', getAllParents);
 router.post('/settings', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'schoolImage', maxCount: 1 }]), updateSchoolDetails);
 
 

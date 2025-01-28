@@ -9,6 +9,7 @@ import TeacherRoutes from './Routes/TeacherRoutes.js'
 import StudentRoutes from './Routes/StudentRoutes.js'
 import ParentRoutes from './Routes/ParentRoutes.js'
 
+
 dotenv.config();
 
 const app = express();
@@ -39,7 +40,7 @@ app.use('/api/parent', ParentRoutes)
 
 // Default route
 app.get("/", (req, res) => {
- res.json({ message: "Hello from ShopKart" });
+ res.json({ message: "Hello from Server" });
 });
 
 // Start the server

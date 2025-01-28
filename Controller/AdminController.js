@@ -4,6 +4,7 @@ import Student from '../Models/Student.js';
 import Teacher from '../Models/Teacher.js';
 import Attendance from '../Models/Attendance.js';
 import Class from '../Models/Classroom.js';
+import ClassModel from '../Models/ClassModel.js';
 import Notice from '../Models/Notice.js';
 import Subject from '../Models/Subject.js';
 import PhoneCallModel from '../Models/PhoneCall.js';
@@ -23,12 +24,14 @@ import Routine from '../Models/Routine.js';
 import Transport from '../Models/Transport.js';
 import Vehicle from '../Models/Vehicle.js';
 import ExamType from '../Models/ExamType.js';
+import Holiday from '../Models/Holiday.js';
 import Exam from '../Models/ExamShedule.js';
 import Topic from '../Models/Topic.js';
 import Fee from '../Models/Fee.js';
 import SeatPlan from '../Models/SeatPlan.js';
 import Marks from '../Models/Mark.js';
 import Staff from '../Models/Staff.js';
+import Parent from '../Models/Parent.js'
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import generateRefreshToken from '../config/refreshtoken.js';
@@ -567,31 +570,33 @@ const updateSection = async (req, res) => {
 // POST Controller to assign a class teacher
 const assignClassTeacher = async (req, res) => {
   try {
-      const { class: className, section, teacher } = req.body;
+    const { class: className, section, name, subject } = req.body;
 
-      // Create a new class teacher assignment
-      const newAssignment = new Teacher({ class: className, section, teacher });
+    // Create a new class teacher assignment with the subject field
+    const newAssignment = new Teacher({ class: className, section, name, subject });
 
-      // Save the new assignment to the database
-      await newAssignment.save();
+    // Save the new assignment to the database
+    await newAssignment.save();
 
-      res.status(201).json({ message: 'Class teacher assigned successfully.', data: newAssignment });
+    res.status(201).json({ message: 'Class teacher assigned successfully.', data: newAssignment });
   } catch (error) {
-      res.status(500).json({ message: 'Error assigning class teacher.', error: error.message });
+    res.status(500).json({ message: 'Error assigning class teacher.', error: error.message });
   }
 };
+
 
 
 
 // GET Controller to retrieve all class teacher assignments
 const getClassTeachers = async (req, res) => {
   try {
-      // Fetch all teacher assignments from the Teacher model
-      const assignments = await Teacher.find();
+    // Fetch only the required fields: class, section, teacher (name), and subject
+    const assignments = await Teacher.find().select('class section name subject');
 
-      res.status(200).json({ message: 'Class teacher assignments retrieved successfully.', data: assignments });
+    // Return the filtered assignments with the class, section, teacher, and subject fields
+    res.status(200).json({ message: 'Class teacher assignments fetched successfully.', assignments });
   } catch (error) {
-      res.status(500).json({ message: 'Error retrieving class teacher assignments.', error: error.message });
+    res.status(500).json({ message: 'Error fetching class teacher assignments.', error: error.message });
   }
 };
 
@@ -693,7 +698,7 @@ const addClass = async (req, res) => {
     const sectionIds = foundSections.map(section => section._id);
 
     // Create a new class entry
-    const newClass = new Class({
+    const newClass = new ClassModel({
       className,
       sections: sectionIds, // Save array of section IDs
     });
@@ -709,8 +714,7 @@ const addClass = async (req, res) => {
 const getClasses = async (req, res) => {
   try {
     // Find classes and populate the 'sections' field with actual section data
-    const classes = await Class.find()
-      .populate('sections', 'name'); // Populate 'sections' with 'name' from Section
+    const classes = await ClassModel.find()
 
     if (!classes || classes.length === 0) {
       return res.status(404).json({ message: 'No classes found.' });
@@ -1101,11 +1105,11 @@ const addStudent = async (req, res) => {
 
 
 
-// Controller function to get selected fields of students
- const getStudentsAdmission = async (req, res) => {
+const getStudentsAdmission = async (req, res) => {
   try {
-    // Fetch students with selected fields only
-    const students = await Student.find();
+    // Fetch students with selected fields only, sorted by creation date (newest first)
+    const students = await Student.find()
+      .sort({ createdAt: -1 })  // Sort by createdAt in descending order (newest first)
 
     // Return success response with the list of students
     res.status(200).json({ message: 'Students fetched successfully', students });
@@ -1114,6 +1118,21 @@ const addStudent = async (req, res) => {
     res.status(500).json({ message: 'Error fetching students', error: error.message });
   }
 };
+
+// POST: Add a new holiday
+const addHoliday = async (req, res) => {
+  const { fromDate, toDate, holidayName, holidayMessage } = req.body;
+  
+  try {
+    const newHoliday = new Holiday({ fromDate, toDate, holidayName, holidayMessage });
+    await newHoliday.save();
+    res.status(201).json({ message: 'Holiday added successfully!', holiday: newHoliday });
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding holiday', error: error.message });
+  }
+};
+
+
 
 
 // Controller function to get a single student's data by ID
@@ -2015,23 +2034,28 @@ const createOrUpdateClassRoutine = async (req, res) => {
   }
 };
 
- const getClassRoutine = async (req, res) => {
+const getClassRoutine = async (req, res) => {
   try {
     // Fetch all class routines from the database
     const routines = await Routine.find();
 
     // If no routines found
     if (routines.length === 0) {
-      return res.status(404).json({ message: "No class routines found" });
+      return res.status(404).json({ success: false, message: "No class routines found" });
     }
 
-    // Return the fetched routines
-    return res.status(200).json(routines);
+    // Return the fetched routines with a well-structured response
+    return res.status(200).json({
+      success: true,
+      message: "Class routines retrieved successfully",
+      routines: routines
+    });
   } catch (error) {
     console.error("Error fetching class routines:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
   }
 };
+
 
 // Controller to add a new assignment
  const addAssignment = async (req, res) => {
@@ -2915,6 +2939,35 @@ const promoteStudent = async (req, res) => {
   }
 };
 
+// GET: Get all holidays
+const getHolidays = async (req, res) => {
+  try {
+    const holidays = await Holiday.find();
+    res.status(200).json({ holidays });
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving holidays', error: error.message });
+  }
+};
+
+const getAllParents = async (req, res) => {
+  try {
+    // Database se saare parents fetch karna
+    const parents = await Parent.find();
+
+    // Agar parents na mile toh empty array bhejna
+    if (!parents || parents.length === 0) {
+      return res.status(404).json({ success: false, message: "No parents found" });
+    }
+
+    // Success response with data
+    res.status(200).json({ success: true, parents });
+  } catch (error) {
+    // Error handling
+    console.error("Error fetching parents:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 
 export { 
   adminRegistration,
@@ -3017,5 +3070,8 @@ export {
       getStudentByFilter,
       getStudentClasses,
       promoteStudent,
-      getClassSectionTopper
+      getClassSectionTopper,
+      addHoliday,
+      getHolidays,
+      getAllParents
 }
