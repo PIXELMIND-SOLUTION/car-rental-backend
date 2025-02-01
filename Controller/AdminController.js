@@ -7,6 +7,7 @@ import Class from '../Models/Classroom.js';
 import ClassModel from '../Models/ClassModel.js';
 import Notice from '../Models/Notice.js';
 import Subject from '../Models/Subject.js';
+import Leave from '../Models/Leave.js';
 import PhoneCallModel from '../Models/PhoneCall.js';
 import ComplaintModel from '../Models/Complaint.js';
 import CertificateModel from '../Models/Certificate.js';
@@ -567,20 +568,33 @@ const updateSection = async (req, res) => {
 };
 
 
-// POST Controller to assign a class teacher
 const assignClassTeacher = async (req, res) => {
   try {
     const { class: className, section, name, subject } = req.body;
 
-    // Create a new class teacher assignment with the subject field
-    const newAssignment = new Teacher({ class: className, section, name, subject });
+    // Check if teacher already exists using name, class, and section
+    let teacher = await Teacher.findOne({ name, class: className, section });
 
-    // Save the new assignment to the database
-    await newAssignment.save();
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found. Please add the teacher first." });
+    }
 
-    res.status(201).json({ message: 'Class teacher assigned successfully.', data: newAssignment });
+    // Create teacher object with ID, name, and subject to push into students' teachers array
+    const teacherData = {
+      teacherId: teacher._id,
+      name: teacher.name,
+      subject
+    };
+
+    // Directly push the teacher object into the teachers array for all students in the class and section
+    await Student.updateMany(
+      { class: className, section },
+      { $push: { teachers: teacherData } } // Directly push teacher data into students' teachers array
+    );
+
+    res.status(201).json({ message: "Class teacher assigned successfully and updated for students.", data: teacher });
   } catch (error) {
-    res.status(500).json({ message: 'Error assigning class teacher.', error: error.message });
+    res.status(500).json({ message: "Error assigning class teacher.", error: error.message });
   }
 };
 
@@ -1431,29 +1445,20 @@ export const getInvoices = async (req, res) => {
   }
 };
 
-// Controller function to add a transport route
- const addTransportRoute = async (req, res) => {
-  const { routeTitle, fare } = req.body;
-
-  // Check if all required fields are provided
-  if (!routeTitle || !fare) {
-    return res.status(400).json({ message: 'Route title and fare are required' });
-  }
+const addTransportRoute = async (req, res) => {
+  const { routeTitle, driver, stops, date } = req.body;
 
   try {
-    // Create a new transport route entry
     const newRoute = new Transport({
-      routeTitle: routeTitle,
-      fare: fare
+      routeTitle,
+      driver,
+      stops,
+      date
     });
 
-    // Save the route to the database
     await newRoute.save();
-
-    // Return success response
     res.status(201).json({ message: 'Transport route added successfully', route: newRoute });
   } catch (error) {
-    // Handle errors during save
     res.status(500).json({ message: 'Error adding transport route', error: error.message });
   }
 };
@@ -1600,35 +1605,108 @@ export const getInvoices = async (req, res) => {
 
 
 const addExamSchedule = async (req, res) => {
-  const { examTitle, class: examClass, section, subject, examDate, startTime, endTime, examType, examCenter } = req.body;
+  const {
+    examTitle,
+    class: examClass,
+    section,
+    examCenter,
+    examDays, // Array of exam days with multiple exams (e.g. before and after lunch)
+    examType, // The exam type (e.g., 'Mid-Term', 'Final')
+  } = req.body;
 
   try {
-    // Create a new exam schedule entry with isAdmitCardGenerated set to false by default
-    const newExamSchedule = new Exam({
-      examTitle,
+    if (!examDays || examDays.length === 0) {
+      return res.status(400).json({
+        message: 'No exam days provided',
+      });
+    }
+
+    const examSchedules = [];
+
+    // Loop through each day in the examDays array
+    for (let day of examDays) {
+      const { date, exams } = day; // Each day has a date and an array of exams (before and after lunch)
+
+      if (!exams || exams.length === 0) {
+        return res.status(400).json({
+          message: `No exams provided for the day ${date}`,
+        });
+      }
+
+      // Loop through each exam for the day
+      for (let exam of exams) {
+        const { subject, startTime, endTime, examTime } = exam;
+
+        const examSchedule = new Exam({
+          examTitle,
+          class: examClass,
+          section,
+          subject,
+          examDate: new Date(date), // Set the exam date for each specific exam
+          startTime,
+          endTime,
+          examTime,
+          examType, // Using the examType passed in the body
+          examCenter,
+          isAdmitCardGenerated: false, // Default value for isAdmitCardGenerated
+        });
+
+        // Save the exam schedule to the database
+        await examSchedule.save();
+
+        // Add the saved exam schedule to the list
+        examSchedules.push(examSchedule);
+      }
+    }
+
+    // Now, update all students of the specified class and section
+    const students = await Student.find({
       class: examClass,
-      section,
-      subject,
-      examDate,
-      startTime,
-      endTime,
-      examType,
-      examCenter,
-      isAdmitCardGenerated: false // Default value for isAdmitCardGenerated
+      section: section,
     });
 
-    // Save the new exam schedule to the database
-    await newExamSchedule.save();
+    // Create an array of exam schedules to push to students
+    const examScheduleData = examSchedules.map((schedule) => ({
+      examDate: schedule.examDate,
+      subject: schedule.subject,
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      examTime: schedule.examTime,
+      examType: schedule.examType,
+      isAdmitCardGenerated: schedule.isAdmitCardGenerated,
+    }));
+
+    // Push the exam schedule data to each student
+    for (let student of students) {
+      student.examSchedule = [...student.examSchedule, ...examScheduleData];
+      await student.save();
+    }
 
     // Return success response
     res.status(201).json({
-      message: 'Exam schedule added successfully',
-      examSchedule: newExamSchedule
+      message: 'Exam schedules added and updated for students successfully',
+      examSchedules: examSchedules.map(schedule => ({
+        examTitle,
+        class: examClass,
+        section,
+        examCenter,
+        examType,
+        exams: examSchedules
+          .filter(s => s.examDate.toISOString().split('T')[0] === schedule.examDate.toISOString().split('T')[0])
+          .map(s => ({
+            examDate: s.examDate,
+            subject: s.subject,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            examTime: s.examTime,
+            isAdmitCardGenerated: s.isAdmitCardGenerated,
+          })),
+      })),
     });
   } catch (error) {
     res.status(500).json({
-      message: 'Error adding exam schedule',
-      error: error.message
+      message: 'Error adding exam schedules and updating students',
+      error: error.message,
     });
   }
 };
@@ -1637,18 +1715,56 @@ const addExamSchedule = async (req, res) => {
 // Controller function to get all exam schedules
 const getExamSchedule = async (req, res) => {
   try {
-    // Fetch all exam schedules from the database
-    const examSchedules = await Exam.find();
+    const { class: classParam, section } = req.query;
 
-    if (examSchedules.length === 0) {
-      return res.status(404).json({ message: 'No exam schedules found' });
-    }
+    // Log incoming query parameters
+    console.log('Query Parameters:', { class: classParam, section });
 
-    // Return the list of exam schedules
-    res.status(200).json({ message: 'Exam schedules fetched successfully', examSchedules });
+    // Fetch all exam schedules for a specific class and section
+    const examSchedules = await Exam.aggregate([
+      { $match: { class: classParam, section: section } }, // Filter by class and section
+      {
+        $group: {
+          _id: { class: "$class", section: "$section", examTitle: "$examTitle", examCenter: "$examCenter", examType: "$examType" },
+          exams: {
+            $push: {
+              examDate: "$examDate",
+              subject: "$subject",
+              startTime: "$startTime",
+              endTime: "$endTime",
+              examTime: "$examTime",
+              isAdmitCardGenerated: "$isAdmitCardGenerated"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1, // Include _id in the result
+          examTitle: "$_id.examTitle",
+          class: "$_id.class",
+          section: "$_id.section",
+          examCenter: "$_id.examCenter",
+          examType: "$_id.examType",
+          exams: 1
+        }
+      }
+    ]);
+
+    // Log the result from the database query
+    console.log('Exam Schedules:', examSchedules);
+
+    // Return the exam schedules in the desired format
+    res.status(200).json({
+      message: 'Exam schedules fetched successfully',
+      examSchedules: examSchedules
+    });
   } catch (error) {
-    // Handle errors during the fetch operation
-    res.status(500).json({ message: 'Error fetching exam schedules', error: error.message });
+    console.error('Error fetching exam schedules:', error.message);
+    res.status(500).json({
+      message: 'Error fetching exam schedules',
+      error: error.message
+    });
   }
 };
 
@@ -2012,9 +2128,8 @@ const addHomework = async (req, res) => {
 };
 
 
-// Create or update a class routine
 const createOrUpdateClassRoutine = async (req, res) => {
-  const { class : className, section, routine } = req.body;
+  const { class: className, section, routine } = req.body;
 
   try {
     // Manually create a new routine or update the existing one based on className and section
@@ -2023,11 +2138,28 @@ const createOrUpdateClassRoutine = async (req, res) => {
     // Save the routine to the database
     await newRoutine.save();
 
-    // Return the created routine in the required response format
+    // Fetch all students in the specific class and section
+    const students = await Student.find({ class: className, section: section });
+
+    // For each student, push the new routine data into the routine[] array
+    const routineData = {
+      class: newRoutine.class,
+      section: newRoutine.section,
+      routine: newRoutine.routine,
+      _id: newRoutine._id, // Adding routine ID to the pushed data
+    };
+
+    for (const student of students) {
+      student.routine.push(routineData); // Push the entire routine data, not just the ID
+      await student.save(); // Save the student with the updated routine array
+    }
+
+    // Return the created routine data in the required response format
     return res.status(201).json([{
       class: newRoutine.class,
       section: newRoutine.section,
       routine: newRoutine.routine,
+      _id: newRoutine._id, // Include the ID in the response as well
     }]);
   } catch (error) {
     console.error("Error creating or updating class routine:", error);
@@ -2969,6 +3101,81 @@ const getAllParents = async (req, res) => {
   }
 };
 
+const getAllLeaves = asyncHandler(async (req, res) => {
+  // Step 1: Fetch all leaves from the Leave model
+  const leaves = await Leave.find();
+
+  if (!leaves || leaves.length === 0) {
+    return res.status(404).json({ message: "No leaves found" });
+  }
+
+  // Step 2: Fetch student, teacher, and parent details based on the IDs
+  const populatedLeaves = await Promise.all(
+    leaves.map(async (leave) => {
+      // Fetch Parent details if parentId exists
+      if (leave.parentId) {
+        const parent = await Parent.findById(leave.parentId);
+        leave.parentName = `${parent.firstName} ${parent.lastName}`;
+        leave.parentContact = parent.contact;  // Add any additional parent details
+      }
+
+      // Fetch student details if studentId exists
+      if (leave.studentId) {
+        const student = await Student.findById(leave.studentId);
+        leave.studentName = `${student.firstName} ${student.lastName}`;
+        leave.class = student.class;
+        leave.section = student.section;
+      }
+
+      // Fetch teacher details if teacherId exists
+      if (leave.teacherId) {
+        const teacher = await Teacher.findById(leave.teacherId);
+        leave.teacherName = `${teacher.firstName} ${teacher.lastName}`;
+      }
+
+      return leave;
+    })
+  );
+
+  // Step 3: Return all leaves with expanded details (student, teacher, and parent)
+  return res.status(200).json({
+    message: "Leaves fetched successfully",
+    leaves: populatedLeaves,
+  });
+});
+
+const updateLeaveStatus = asyncHandler(async (req, res) => {
+  const { leaveId } = req.params; // Leave ID to identify which leave to update
+  const { status } = req.body;   // Status to update (approved, rejected, etc.)
+
+  // Step 1: Validate the status value
+  const validStatuses = ['Approved', 'Rejected', 'Pending']; // You can add other status values here
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: "Invalid status value" });
+  }
+
+  // Step 2: Find the leave by ID
+  const leave = await Leave.findById(leaveId);
+
+  if (!leave) {
+    return res.status(404).json({ message: "Leave not found" });
+  }
+
+  // Step 3: Update the leave status
+  leave.status = status;
+
+  // Step 4: Save the updated leave
+  await leave.save();
+
+  // Step 5: Return the updated leave information
+  return res.status(200).json({
+    message: `Leave status updated to ${status}`,
+    leave,
+  });
+});
+
+
+
 
 export { 
   adminRegistration,
@@ -3074,5 +3281,7 @@ export {
       getClassSectionTopper,
       addHoliday,
       getHolidays,
-      getAllParents
+      getAllParents,
+      getAllLeaves,
+      updateLeaveStatus
 }

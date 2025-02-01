@@ -565,32 +565,27 @@ const getClassRoutine = async (req, res) => {
 
 // Apply for leave controller
 const applyForLeave = asyncHandler(async (req, res) => {
-  const { startDate, endDate, leaveType, reason } = req.body;
+  const { teacherId } = req.params;
+  const { startDate, endDate, reason } = req.body;
 
-  // Step 1: Validate the input data
-  if (!startDate || !endDate || !reason) {
-    return res.status(400).json({
-      message: "Please provide all necessary fields (teacherId, startDate, endDate, reason).",
+  try {
+    const newLeave = new Leave({
+      teacherId,
+      startDate,
+      endDate,
+      reason,
     });
+
+    await newLeave.save();
+
+    res.status(201).json({
+      message: "Leave applied successfully for teacher",
+      leave: newLeave,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 
-  // Step 2: Create the leave request
-  const newLeave = new Leave({
-    startDate,
-    endDate,
-    reason,
-    leaveType,
-    status: 'Pending', // Default status
-  });
-
-  // Step 3: Save the leave request to the database
-  await newLeave.save();
-
-  // Step 4: Respond with success
-  res.status(201).json({
-    message: "Leave applied successfully.",
-    leave: newLeave,
-  });
 });
 
 
@@ -764,6 +759,30 @@ const teacherLogin = async (req, res) => {
   }
 };
 
+// Controller to get teacher's subjects by teacherId
+const getTeacherSubject = async (req, res) => {
+  const teacherId = req.params.teacherId;
+
+  try {
+    // Find teacher by ID and populate the subjects field (assuming subjects are stored in a teacher's model)
+    const teacher = await Teacher.findById(teacherId).populate("subject");
+
+    // If teacher is not found, return a 404 error
+    if (!teacher) {
+      return res.status(404).json({ error: "Teacher not found" });
+    }
+
+    // Send the subjects back in the response
+    res.status(200).json({
+      success: true,
+      subjects: teacher.subject,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 export { getTeachers,
      getTeacherById, 
      updateTeacher, 
@@ -792,6 +811,7 @@ export { getTeachers,
       fileComplaint,
       createTeacher,
       getAllTeachers,
-      teacherLogin
+      teacherLogin,
+      getTeacherSubject
 
      };

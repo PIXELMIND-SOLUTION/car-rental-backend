@@ -295,28 +295,21 @@ marks: [
       ref: 'Student', // Assuming you already have a 'Student' model
     }
   ],
-  examSchedule: [
-    {
-        subject: {
-            type: String,
-        },
-        examDate: {
-            type: Date,
-        },
-        examTime: {
-            type: String,
-        },
-        examType: {
-            type: String,
-            enum: ['Mid-Term', 'Final', 'Quiz', 'Unit Test'], // You can add more types as per your requirements
-        },
-        isAdmitCardGenerated: {
-          type: Boolean,
-          default: false, // Default value to false
-        },
-        
+ examSchedule: [{
+    examDate: Date,
+    subject: String,
+    startTime: String,
+    endTime: String,
+    examTime: String,
+    examType: {
+      type: String,
+      enum: ['Mid-Term', 'Final', 'Quiz', 'Unit Test'],
     },
-],
+    isAdmitCardGenerated: {
+      type: Boolean,
+      default: false,
+    },
+  }],
 admitCard: {
   admitGenerated: { type: Boolean, default: false },
   issueDate: { type: Date },
@@ -332,6 +325,21 @@ transport: { type: mongoose.Schema.Types.ObjectId, ref: 'Transport' }, // Refere
     phone: String,
     occupation: String,
     relationship: String,  // e.g. Father, Mother, Guardian
+  }
+],
+teachers: [
+  {
+    teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
+    name: { type: String, },
+    subject: { type: String, }
+  }
+],
+routine: [
+  {
+    class: { type: String, },
+    section: { type: String, },
+    routine: { type: Array, },
+    _id: { type: mongoose.Schema.Types.ObjectId, }
   }
 ],
 complaints: [

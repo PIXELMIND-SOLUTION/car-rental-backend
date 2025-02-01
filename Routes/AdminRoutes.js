@@ -88,7 +88,9 @@ import {
   addHoliday,
   getHolidays,
   getAllParents,
-  getExamTypes
+  getExamTypes,
+  getAllLeaves,
+  updateLeaveStatus
 } from '../Controller/AdminController.js'
 
 // Configure multer for file uploads
@@ -191,6 +193,9 @@ router.get("/topper", getClassSectionTopper);
 router.post('/add-holidays', addHoliday);
 router.get('/holidays', getHolidays);
 router.get('/parents', getAllParents);
+router.get('/leaves', getAllLeaves);
+router.put('/approve-leave/:leaveId', updateLeaveStatus);
+
 router.post('/settings', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'schoolImage', maxCount: 1 }]), updateSchoolDetails);
 
 

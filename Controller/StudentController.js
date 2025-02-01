@@ -8,6 +8,7 @@ import Assignment from '../Models/Assignment.js';
 import Syllabus from '../Models/Syllabus.js';
 import Marks from '../Models/Mark.js';
 import Notice from '../Models/Notice.js';
+import Leave from '../Models/Leave.js';
 import jwt from 'jsonwebtoken'
 import PDFDocument from 'pdfkit';
 import dotenv from 'dotenv';
@@ -61,115 +62,105 @@ const deleteStudent = asyncHandler(async (req, res) => {
     res.json({ message: 'Student removed' });
 });
 
-// Controller function to get exam schedules by studentId (class and section based on student)
 const getExamScheduleByStudent = async (req, res) => {
-    const { studentId } = req.params; // Extract studentId from params
-  
-    try {
-      // Fetch the student based on studentId
-      const student = await Student.findById(studentId);
-  
-      if (!student) {
-        return res.status(404).json({ message: 'Student not found' });
-      }
-  
-      // Fetch the exam schedules based on student's class and section
-      const examSchedules = await Exam.find({
-        class: student.class,
-        section: student.section
-      });
-  
-      if (examSchedules.length === 0) {
-        return res.status(404).json({ message: 'No exam schedules found for the student' });
-      }
-  
-      // Return the filtered list of exam schedules
-      res.status(200).json({ message: 'Exam schedules fetched successfully', examSchedules });
-    } catch (error) {
-      // Handle errors during the fetch operation
-      res.status(500).json({ message: 'Error fetching exam schedules', error: error.message });
-    }
-  };
+  const { studentId } = req.params; // Extract studentId from params
 
-  const getAdmitCard = async (req, res) => {
-    const { studentId } = req.params; // Extract studentId from params
-  
-    try {
-        // Fetch the student based on studentId
-        const student = await Student.findById(studentId);
-  
-        if (!student) {
-            return res.status(404).json({ message: 'Student not found' });
-        }
-  
-        // Fetch the exam schedules based on student's class and section and filter for isAdmitCardGenerated: true
-        const examSchedules = await Exam.find({
-            class: student.class,
-            section: student.section,
-            isAdmitCardGenerated: true, // Filter for schedules where admit card is generated
-        });
-  
-        if (examSchedules.length === 0) {
-            return res.status(404).json({ message: 'No exam schedules found for the student with admit cards generated' });
-        }
-  
-        // Prepare the JSON response
-        const admitCardData = {
-            studentDetails: {
-                name: `${student.firstName} ${student.lastName}`,
-                class: student.class,
-                section: student.section,
-                rollNumber: student.rollNumber,
-            },
-            examSchedules: examSchedules.map((exam, index) => ({
-                serialNo: index + 1,
-                examTitle: exam.examTitle,
-                subject: exam.subject,
-                date: new Date(exam.examDate).toLocaleDateString(),
-                time: `${exam.startTime} - ${exam.endTime}`,
-                type: exam.examType || 'N/A',
-            })),
-        };
-  
-        // Send the response in JSON format
-        res.status(200).json(admitCardData);
-    } catch (error) {
-        // Handle errors during the fetch operation
-        res.status(500).json({ message: 'Error generating admit card', error: error.message });
-    }
+  try {
+      // Fetch the student along with their exam schedule
+      const student = await Student.findById(studentId).select('examSchedule');
+
+      if (!student) {
+          return res.status(404).json({ message: 'Student not found' });
+      }
+
+      // Check if the student has an exam schedule
+      if (!student.examSchedule || student.examSchedule.length === 0) {
+          return res.status(404).json({ message: 'No exam schedules found for the student' });
+      }
+
+      // Return the student's exam schedule
+      res.status(200).json({ message: 'Exam schedules fetched successfully', examSchedule: student.examSchedule });
+  } catch (error) {
+      // Handle errors
+      res.status(500).json({ message: 'Error fetching exam schedules', error: error.message });
+  }
+};
+
+
+const getAdmitCard = async (req, res) => {
+  const { studentId } = req.params; // Extract studentId from params
+
+  try {
+      // Fetch the student along with their exam schedule
+      const student = await Student.findById(studentId).select('firstName lastName class section roll examSchedule');
+
+      if (!student) {
+          return res.status(404).json({ message: 'Student not found' });
+      }
+
+      // Check if the student has an exam schedule
+      if (!student.examSchedule || student.examSchedule.length === 0) {
+          return res.status(404).json({ message: 'No exam schedules found for the student' });
+      }
+
+      // Prepare the JSON response
+      const admitCardData = {
+          studentDetails: {
+              name: `${student.firstName} ${student.lastName}`,
+              class: student.class,
+              section: student.section,
+              rollNumber: student.roll,
+          },
+          examSchedules: student.examSchedule.map((exam, index) => ({
+              serialNo: index + 1,
+              subject: exam.subject,
+              date: new Date(exam.examDate).toLocaleDateString(),
+              time: exam.startTime && exam.endTime ? `${exam.startTime} - ${exam.endTime}` : 'N/A',
+              type: exam.examType || 'N/A',
+          })),
+      };
+
+      // Send the response in JSON format
+      res.status(200).json({ message: 'Admit card generated successfully', admitCard: admitCardData });
+  } catch (error) {
+      // Handle errors
+      res.status(500).json({ message: 'Error generating admit card', error: error.message });
+  }
 };
 
   
 
-  const getClassRoutine = async (req, res) => {
-    const { studentId } = req.params;  // Get studentId from request params
-  
-    try {
-      // Fetch the student data based on studentId
-      const student = await Student.findById(studentId);  // Adjust this if you're using a different method to fetch student
-  
-      if (!student) {
-        return res.status(404).json({ message: "Student not found" });
-      }
-  
-      // Now, use the class and section of the student to fetch the routine
-      const { class: studentClass, section } = student;  // Get class and section
-  
-      // Fetch the routine based on class and section
-      const routine = await Routine.findOne({ class: studentClass, section });
-  
-      if (!routine) {
-        return res.status(404).json({ message: "No routine found for the student's class" });
-      }
-  
-      // Return the fetched routine
-      return res.status(200).json(routine);
-    } catch (error) {
-      console.error("Error fetching class routine:", error);
-      return res.status(500).json({ error: "Internal Server Error" });
+const getClassRoutine = async (req, res) => {
+  const { studentId } = req.params;  // Get studentId from request params
+
+  try {
+    // Fetch the student data based on studentId and only select the class, section, and routine fields
+    const student = await Student.findById(studentId).select('class section routine');  // Select class, section, and routine fields
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
     }
-  };
-  
+
+    // Now, use the class and section of the student to find the routine in the routine array
+    const { class: studentClass, section } = student;  // Get class and section
+
+    // Find the routine from the student's routine array
+    const studentRoutine = student.routine.find(
+      (routine) => routine.class === studentClass && routine.section === section
+    );
+
+    if (!studentRoutine) {
+      return res.status(404).json({ message: "No routine found for the student's class" });
+    }
+
+    // Return the found routine
+    return res.status(200).json(studentRoutine);
+  } catch (error) {
+    console.error("Error fetching class routine:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
  const getLessonsByStudent = async (req, res) => {
     const { studentId } = req.params;  // Get studentId from request parameters
   
@@ -333,25 +324,36 @@ const applyForLeave = asyncHandler(async (req, res) => {
   const student = await Student.findById(studentId);
 
   if (!student) {
-      return res.status(404).json({ message: "Student not found" });
+    return res.status(404).json({ message: "Student not found" });
   }
 
-  // Step 2: Add the leave request
-  const newLeave = {
-      startDate,
-      endDate,
-      reason,
-      status: 'Pending', // Default status
-  };
+  // Step 2: Create a new leave request object for the Leave model
+  const newLeave = new Leave({
+    startDate,
+    endDate,
+    reason,
+    status: 'Pending',
+    studentId, // Associate leave with the student
+  });
 
-  student.leaves.push(newLeave);
+  // Step 3: Save the new leave request in the Leave model
+  await newLeave.save();
 
-  // Step 3: Save the updated student document
+  // Step 4: Push the leave details directly into the student's leaves array
+  student.leaves.push({
+    leaveId: newLeave._id,
+    startDate,
+    endDate,
+    reason,
+    status: 'Pending',
+  });
+
+  // Step 5: Save the updated student document
   await student.save();
 
   res.status(201).json({
-      message: "Leave applied successfully",
-      leave: newLeave,
+    message: "Leave applied successfully",
+    leave: newLeave,
   });
 });
 
@@ -533,28 +535,32 @@ const getStudentSubjects = asyncHandler(async (req, res) => {
 const getStudentSubjectsTeachers = asyncHandler(async (req, res) => {
   const { studentId } = req.params;
 
-  // Fetch student by ID and populate only the teacher field in subjects
+  // Fetch student by ID and populate the teachers array
   const student = await Student.findById(studentId).populate({
-    path: 'subjects', // Populate the subjects field
-    select: 'teacher', // Only select the 'teacher' field for each subject
+    path: 'teachers.teacherId', // Populate teacherId field to get teacher details
+    select: 'name subject email phone', // Select name, subject, email, and phone from the Teacher model
   });
 
   if (!student) {
     return res.status(404).json({ message: "Student not found" });
   }
 
-  // Return student details with populated subjects containing only the teacher info
+  // Return student details with populated teachers array
   res.status(200).json({
     message: "Student details fetched successfully",
     student: {
       class: student.class,
       section: student.section,
-      subjects: student.subjects.map(subject => ({
-        teacher: subject.teacher, // Only include the teacher for each subject
+      teachers: student.teachers.map(teacher => ({
+        name: teacher.teacherId.name, // Teacher's name
+        subject: teacher.teacherId.subject, // Teacher's subject
+        email: teacher.teacherId.email, // Teacher's email
+        phone: teacher.teacherId.phone, // Teacher's phone
       })),
     },
   });
 });
+
 
 // Controller to get student details along with their assigned transport
 const getStudentTransport = asyncHandler(async (req, res) => {

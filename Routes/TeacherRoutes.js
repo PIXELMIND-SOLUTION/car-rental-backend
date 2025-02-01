@@ -17,6 +17,7 @@ import {
     getStudentsAdmission,
     fileComplaint,
     teacherLogin,
+    getTeacherSubject
 } from '../Controller/TeacherController.js';
 
 
@@ -35,6 +36,8 @@ router.get('/leaves', getAllLeaves);
 router.get('/students', getStudentsAdmission);
 router.post('/add-complaint/:studentId', fileComplaint);
 router.post('/login', teacherLogin);
+router.get('/subjects/:teacherId', getTeacherSubject);
+
 
 
 
