@@ -287,6 +287,9 @@ marks: [
       examType: {
         type: String,
     },
+    examName: {
+      type: String,
+  },
   },
 ],
   students: [

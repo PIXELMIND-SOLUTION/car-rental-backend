@@ -5,6 +5,7 @@ import Routine from '../Models/Routine.js';
 import Lesson from '../Models/Lesson.js';
 import Homework from '../Models/Homework.js';
 import Assignment from '../Models/Assignment.js';
+import ComplaintModel from '../Models/Complaint.js';
 import Syllabus from '../Models/Syllabus.js';
 import Marks from '../Models/Mark.js';
 import Notice from '../Models/Notice.js';
@@ -380,6 +381,7 @@ const getLeavesByStudent = asyncHandler(async (req, res) => {
 
 const getMarksByStudent = asyncHandler(async (req, res) => {
   const { studentId } = req.params;
+  const { examType } = req.query; // Query parameter for filtering by exam type
 
   try {
     // Step 1: Retrieve marks for the given student ID and populate student details
@@ -392,15 +394,25 @@ const getMarksByStudent = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "Marks not found for this student" });
     }
 
-    // Step 2: Group marks by student and calculate totals
+    // Step 2: Filter marks by examType (if provided)
+    const filteredMarks = examType
+      ? marks.filter((mark) => mark.examType === examType)
+      : marks;
+
+    if (filteredMarks.length === 0) {
+      return res.status(404).json({ message: `No marks found for exam type: ${examType}` });
+    }
+
+    // Step 3: Group marks and calculate totals
     const studentMarks = {
-      student: marks[0].studentId || { firstName: "N/A", lastName: "N/A" },
+      student: filteredMarks[0].studentId || { firstName: "N/A", lastName: "N/A" },
       subjects: [],
       totalObtainedMarks: 0,
       totalMarks: 0,
+      examType: examType || "All", // Show which exam type is used
     };
 
-    marks.forEach((mark) => {
+    filteredMarks.forEach((mark) => {
       const percentage = (mark.marksObtained / mark.totalMarks) * 100;
 
       // Determine grade based on percentage
@@ -429,7 +441,7 @@ const getMarksByStudent = asyncHandler(async (req, res) => {
       studentMarks.totalMarks += mark.totalMarks;
     });
 
-    // Step 3: Calculate overall percentage and status
+    // Step 4: Calculate overall percentage and status
     const overallPercentage =
       (studentMarks.totalObtainedMarks / studentMarks.totalMarks) * 100;
     const overallStatus = overallPercentage >= 40 ? "Pass" : "Fail";
@@ -440,7 +452,7 @@ const getMarksByStudent = asyncHandler(async (req, res) => {
       overallStatus,
     };
 
-    // Step 4: Respond with the structured marks
+    // Step 5: Respond with the structured marks
     res.status(200).json({
       message: "Marks retrieved successfully",
       marks: response,
@@ -719,6 +731,63 @@ const getFeeDetailsByUserId = async (req, res) => {
   }
 };
 
+
+// Controller to fetch fee details by userId, including totalPaid and totalPending
+const getFeeSummaryByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Find the student and populate the fees array
+    const student = await Student.findById(userId).populate('fees');
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Calculate totalPaid and totalPending by summing the respective amounts
+    const totalPaid = student.fees.reduce((acc, fee) => acc + fee.paidAmount, 0);
+    const totalPending = student.fees.reduce((acc, fee) => acc + fee.pendingPayment, 0);
+
+    return res.status(200).json({
+      totalPaid,
+      totalPending,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get complaints for a specific student
+const getStudentComplaints = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Fetch the student by studentId
+    const student = await Student.findById(userId).populate('complaints');
+    
+    if (!student) {
+      return res.json({ message: 'Student not found' });
+    }
+
+    // Retrieve the complaints from the student model (populated with complaint details)
+    const complaints = student.complaints.map((complaint) => ({
+      title: complaint.title,
+      description: complaint.description,
+      complaintBy: complaint.complaintBy
+    }));
+
+    // Return the complaints in the response
+    return res.status(200).json({
+      studentId: student._id,
+      complaints: complaints
+    });
+  } catch (error) {
+    console.error("Error fetching student's complaints:", error);
+    return res.status(500).json({ message: 'An error occurred' });
+  }
+};
+
+
 export  {
     getStudents,
     getStudentById,
@@ -743,5 +812,7 @@ export  {
     loginStudent,
     getAdmitCard,
     getStudentDetails,
-    getFeeDetailsByUserId
+    getFeeDetailsByUserId,
+    getFeeSummaryByUserId,
+    getStudentComplaints
 };

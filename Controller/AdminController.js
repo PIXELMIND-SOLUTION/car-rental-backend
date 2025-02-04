@@ -11,6 +11,7 @@ import Leave from '../Models/Leave.js';
 import PhoneCallModel from '../Models/PhoneCall.js';
 import ComplaintModel from '../Models/Complaint.js';
 import CertificateModel from '../Models/Certificate.js';
+import Meeting from '../Models/Meeting.js';
 import cloudinary from '../config/cloudinary.js';
 import SectionModel from '../Models/Section.js';
 import Content from '../Models/Content.js';
@@ -136,133 +137,133 @@ const adminLogin = asyncHandler(async (req, res) => {
   });
 });
 
-  
-  const adminLogout = asyncHandler(async (req, res) => {
-    try {
-      res.clearCookie("token").status(200).json({ message: "Logout Successful" })
-    } catch (error) {
-      return res.status(500).json({ status: "failed", message: "Unable to logout", error: error.message });
-    }
-  })
+
+const adminLogout = asyncHandler(async (req, res) => {
+  try {
+    res.clearCookie("token").status(200).json({ message: "Logout Successful" })
+  } catch (error) {
+    return res.status(500).json({ status: "failed", message: "Unable to logout", error: error.message });
+  }
+})
 
 
 // Student Management
 const getStudents = asyncHandler(async (req, res) => {
-    const students = await Student.find();
-    res.json(students);
+  const students = await Student.find();
+  res.json(students);
 });
 
 const createStudent = asyncHandler(async (req, res) => {
-    const { name, age, classId } = req.body;
-    const student = new Student({ name, age, classId });
-    const createdStudent = await student.save();
-    res.status(201).json(createdStudent);
+  const { name, age, classId } = req.body;
+  const student = new Student({ name, age, classId });
+  const createdStudent = await student.save();
+  res.status(201).json(createdStudent);
 });
 
 const updateStudent = asyncHandler(async (req, res) => {
-    const student = await Student.findById(req.params.id);
-    if (!student) {
-        res.status(404);
-        throw new Error('Student not found');
-    }
-    Object.assign(student, req.body);
-    const updatedStudent = await student.save();
-    res.json(updatedStudent);
+  const student = await Student.findById(req.params.id);
+  if (!student) {
+    res.status(404);
+    throw new Error('Student not found');
+  }
+  Object.assign(student, req.body);
+  const updatedStudent = await student.save();
+  res.json(updatedStudent);
 });
 
 const deleteStudent = asyncHandler(async (req, res) => {
-    const student = await Student.findById(req.params.id);
-    if (!student) {
-        res.status(404);
-        throw new Error('Student not found');
-    }
-    await student.remove();
-    res.json({ message: 'Student removed' });
+  const student = await Student.findById(req.params.id);
+  if (!student) {
+    res.status(404);
+    throw new Error('Student not found');
+  }
+  await student.remove();
+  res.json({ message: 'Student removed' });
 });
 
 // Teacher Management
 const getTeachers = asyncHandler(async (req, res) => {
-    const teachers = await Teacher.find();
-    res.json(teachers);
+  const teachers = await Teacher.find();
+  res.json(teachers);
 });
 
 const updateTeacher = asyncHandler(async (req, res) => {
-    const teacher = await Teacher.findById(req.params.id);
-    if (!teacher) {
-        res.status(404);
-        throw new Error('Teacher not found');
-    }
-    Object.assign(teacher, req.body);
-    const updatedTeacher = await teacher.save();
-    res.json(updatedTeacher);
+  const teacher = await Teacher.findById(req.params.id);
+  if (!teacher) {
+    res.status(404);
+    throw new Error('Teacher not found');
+  }
+  Object.assign(teacher, req.body);
+  const updatedTeacher = await teacher.save();
+  res.json(updatedTeacher);
 });
 
 const deleteTeacher = asyncHandler(async (req, res) => {
-    const teacher = await Teacher.findById(req.params.id);
-    if (!teacher) {
-        res.status(404);
-        throw new Error('Teacher not found');
-    }
-    await teacher.remove();
-    res.json({ message: 'Teacher removed' });
+  const teacher = await Teacher.findById(req.params.id);
+  if (!teacher) {
+    res.status(404);
+    throw new Error('Teacher not found');
+  }
+  await teacher.remove();
+  res.json({ message: 'Teacher removed' });
 });
 
 
 const createClass = asyncHandler(async (req, res) => {
-    const { name, teacherId } = req.body;
-    const newClass = new Class({ name, teacherId });
-    const createdClass = await newClass.save();
-    res.status(201).json(createdClass);
+  const { name, teacherId } = req.body;
+  const newClass = new Class({ name, teacherId });
+  const createdClass = await newClass.save();
+  res.status(201).json(createdClass);
 });
 
 // Attendance Management
 const markAttendance = asyncHandler(async (req, res) => {
-    const { studentId, date, status } = req.body;
-    const attendance = new Attendance({ studentId, date, status });
-    const createdAttendance = await attendance.save();
-    res.status(201).json(createdAttendance);
+  const { studentId, date, status } = req.body;
+  const attendance = new Attendance({ studentId, date, status });
+  const createdAttendance = await attendance.save();
+  res.status(201).json(createdAttendance);
 });
 
 
 // Add a new complaint
 const addComplaint = async (req, res) => {
-    try {
-      const {
-        complaintBy,
-        complaintType,
-        complaintSource,
-        phone,
-        date,
-        actionsTaken,
-        assigned,
-        description,
-      } = req.body;
-  
-      // Validate required fields
-      if (!complaintBy || !complaintType || !complaintSource || !description) {
-        return res.status(400).json({ message: 'All required fields must be filled.' });
-      }
-  
-      // Create a new complaint entry
-      const complaint = new ComplaintModel({
-        complaintBy,
-        complaintType,
-        complaintSource,
-        phone,
-        date,
-        actionsTaken,
-        assigned,
-        description,
-      });
-  
-      await complaint.save();
-  
-      res.status(201).json({ message: 'Complaint added successfully!', complaint });
-    } catch (error) {
-      res.status(500).json({ message: 'Error adding complaint.', error: error.message });
+  try {
+    const {
+      complaintBy,
+      complaintType,
+      complaintSource,
+      phone,
+      date,
+      actionsTaken,
+      assigned,
+      description,
+    } = req.body;
+
+    // Validate required fields
+    if (!complaintBy || !complaintType || !complaintSource || !description) {
+      return res.status(400).json({ message: 'All required fields must be filled.' });
     }
-  };
-  
+
+    // Create a new complaint entry
+    const complaint = new ComplaintModel({
+      complaintBy,
+      complaintType,
+      complaintSource,
+      phone,
+      date,
+      actionsTaken,
+      assigned,
+      description,
+    });
+
+    await complaint.save();
+
+    res.status(201).json({ message: 'Complaint added successfully!', complaint });
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding complaint.', error: error.message });
+  }
+};
+
 // Get complaints
 const getComplaints = async (req, res) => {
   try {
@@ -326,35 +327,35 @@ const getVisits = async (req, res) => {
 
 
 // Add a new phone call
- const addPhoneCall = async (req, res) => {
-    try {
-      const { name, phone, date, followUpDate, callDuration, description, type } = req.body;
-  
-      // Validate required fields
-      if (!phone) {
-        return res.status(400).json({ message: 'Phone number is required.' });
-      }
-  
-      // Create a new phone call entry
-      const phoneCall = new PhoneCallModel({
-        name,
-        phone,
-        date,
-        followUpDate,
-        callDuration,
-        description,
-        type,
-      });
-  
-      await phoneCall.save();
-  
-      res.status(201).json({ message: 'Phone call added successfully!', phoneCall });
-    } catch (error) {
-      res.status(500).json({ message: 'Error adding phone call.', error: error.message });
+const addPhoneCall = async (req, res) => {
+  try {
+    const { name, phone, date, followUpDate, callDuration, description, type } = req.body;
+
+    // Validate required fields
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required.' });
     }
-  };
-  
-  // Get phone calls
+
+    // Create a new phone call entry
+    const phoneCall = new PhoneCallModel({
+      name,
+      phone,
+      date,
+      followUpDate,
+      callDuration,
+      description,
+      type,
+    });
+
+    await phoneCall.save();
+
+    res.status(201).json({ message: 'Phone call added successfully!', phoneCall });
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding phone call.', error: error.message });
+  }
+};
+
+// Get phone calls
 const getPhoneCalls = async (req, res) => {
   try {
     // Fetch all phone calls without filtering
@@ -369,143 +370,143 @@ const getPhoneCalls = async (req, res) => {
 
 // Add a new certificate
 const addCertificate = async (req, res) => {
-    try {
-      const {
-        certificateName,
-        headerLeftText,
-        date,
-        body,
-        bodyFont,
-        fontSize,
-        footerLeftText,
-        footerCenterText,
-        footerRightText,
-        pageLayout,
-        height,
-        width,
-        studentPhoto,
-      } = req.body;
-  
-      // Validate required fields
-      if (!certificateName) {
-        return res.status(400).json({ message: 'Certificate name is required.' });
-      }
-  
-      // Create a new certificate entry
-      const certificate = new CertificateModel({
-        certificateName,
-        headerLeftText,
-        date,
-        body,
-        bodyFont,
-        fontSize,
-        footerLeftText,
-        footerCenterText,
-        footerRightText,
-        pageLayout,
-        height,
-        width,
-        studentPhoto,
-      });
-  
-      await certificate.save();
-  
-      res.status(201).json({ message: 'Certificate added successfully!', certificate });
-    } catch (error) {
-      res.status(500).json({ message: 'Error adding certificate.', error: error.message });
-    }
-  };
-  
-  // Get certificates
- const getCertificates = async (req, res) => {
-    try {
-      const { certificateName, date } = req.query;
-  
-      // Filter by certificate name and/or date if provided
-      const filter = {};
-      if (certificateName) filter.certificateName = certificateName;
-      if (date) filter.date = new Date(date);
-  
-      const certificates = await CertificateModel.find(filter);
-  
-      res.status(200).json({ message: 'Certificates fetched successfully!', certificates });
-    } catch (error) {
-      res.status(500).json({ message: 'Error fetching certificates.', error: error.message });
-    }
-  };
+  try {
+    const {
+      certificateName,
+      headerLeftText,
+      date,
+      body,
+      bodyFont,
+      fontSize,
+      footerLeftText,
+      footerCenterText,
+      footerRightText,
+      pageLayout,
+      height,
+      width,
+      studentPhoto,
+    } = req.body;
 
-  const addVisitor = async (req, res) => {
-    try {
-      const { purpose, name, phone, id, no_of_persons, date, in_time, out_time } = req.body;
-  
-      // Log incoming data to ensure it's correctly passed
-      console.log('Incoming request data:', req.body);
-    
-      // Handle file upload if provided
-      const file = req.file ? req.file.path : null;
-  
-      // Log the file to ensure it's being handled
-      console.log('Uploaded file:', file);
-  
-      // Create a new visitor entry
-      const newVisitor = new VisitorModel({
-        purpose,
-        name,
-        phone,
-        id,
-        no_of_persons,
-        date,
-        in_time,
-        out_time,
-        file,
-      });
-    
-      await newVisitor.save();
-    
-      return res.status(201).json({ message: 'Visitor added successfully', visitor: newVisitor });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: 'Error adding visitor', error: error.message });
+    // Validate required fields
+    if (!certificateName) {
+      return res.status(400).json({ message: 'Certificate name is required.' });
     }
-  };
-  
+
+    // Create a new certificate entry
+    const certificate = new CertificateModel({
+      certificateName,
+      headerLeftText,
+      date,
+      body,
+      bodyFont,
+      fontSize,
+      footerLeftText,
+      footerCenterText,
+      footerRightText,
+      pageLayout,
+      height,
+      width,
+      studentPhoto,
+    });
+
+    await certificate.save();
+
+    res.status(201).json({ message: 'Certificate added successfully!', certificate });
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding certificate.', error: error.message });
+  }
+};
+
+// Get certificates
+const getCertificates = async (req, res) => {
+  try {
+    const { certificateName, date } = req.query;
+
+    // Filter by certificate name and/or date if provided
+    const filter = {};
+    if (certificateName) filter.certificateName = certificateName;
+    if (date) filter.date = new Date(date);
+
+    const certificates = await CertificateModel.find(filter);
+
+    res.status(200).json({ message: 'Certificates fetched successfully!', certificates });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching certificates.', error: error.message });
+  }
+};
+
+const addVisitor = async (req, res) => {
+  try {
+    const { purpose, name, phone, id, no_of_persons, date, in_time, out_time } = req.body;
+
+    // Log incoming data to ensure it's correctly passed
+    console.log('Incoming request data:', req.body);
+
+    // Handle file upload if provided
+    const file = req.file ? req.file.path : null;
+
+    // Log the file to ensure it's being handled
+    console.log('Uploaded file:', file);
+
+    // Create a new visitor entry
+    const newVisitor = new VisitorModel({
+      purpose,
+      name,
+      phone,
+      id,
+      no_of_persons,
+      date,
+      in_time,
+      out_time,
+      file,
+    });
+
+    await newVisitor.save();
+
+    return res.status(201).json({ message: 'Visitor added successfully', visitor: newVisitor });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error adding visitor', error: error.message });
+  }
+};
+
 
 // Add a new section
 const addSection = async (req, res) => {
-    try {
-      const { name } = req.body;
-  
-      // Validate required field
-      if (!name) {
-        return res.status(400).json({ message: 'Section name is required.' });
-      }
-  
-      // Create a new section entry
-      const section = new SectionModel({ name });
-  
-      await section.save();
-  
-      res.status(201).json({ message: 'Section added successfully!', section });
-    } catch (error) {
-      res.status(500).json({ message: 'Error adding section.', error: error.message });
+  try {
+    const { name } = req.body;
+
+    // Validate required field
+    if (!name) {
+      return res.status(400).json({ message: 'Section name is required.' });
     }
-  };
-  
-  // Get sections
+
+    // Create a new section entry
+    const section = new SectionModel({ name });
+
+    await section.save();
+
+    res.status(201).json({ message: 'Section added successfully!', section });
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding section.', error: error.message });
+  }
+};
+
+// Get sections
 const getSections = async (req, res) => {
-    try {
-      const { name } = req.query;
-  
-      // Filter by name if provided
-      const filter = name ? { name } : {};
-  
-      const sections = await SectionModel.find(filter);
-  
-      res.status(200).json({ message: 'Sections fetched successfully!', sections });
-    } catch (error) {
-      res.status(500).json({ message: 'Error fetching sections.', error: error.message });
-    }
-  };
+  try {
+    const { name } = req.query;
+
+    // Filter by name if provided
+    const filter = name ? { name } : {};
+
+    const sections = await SectionModel.find(filter);
+
+    res.status(200).json({ message: 'Sections fetched successfully!', sections });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching sections.', error: error.message });
+  }
+};
 
 
 // Delete a section
@@ -660,40 +661,40 @@ const assignSubjectTeacher = async (req, res) => {
 // GET Controller to retrieve subject assignments
 const getSubjectAssignments = async (req, res) => {
   try {
-      const { class: className, section, subject } = req.query;
+    const { class: className, section, subject } = req.query;
 
-      // Query based on class, section, and subject (optional filters)
-      const filters = {};
-      if (className) filters.class = className;
-      if (section) filters.section = section;
-      if (subject) filters.subject = subject;
+    // Query based on class, section, and subject (optional filters)
+    const filters = {};
+    if (className) filters.class = className;
+    if (section) filters.section = section;
+    if (subject) filters.subject = subject;
 
-      const assignments = await Subject.find(filters);
+    const assignments = await Subject.find(filters);
 
-      res.status(200).json({ message: 'Subject teacher assignments retrieved successfully.', data: assignments });
+    res.status(200).json({ message: 'Subject teacher assignments retrieved successfully.', data: assignments });
   } catch (error) {
-      res.status(500).json({ message: 'Error retrieving subject teacher assignments.', error: error.message });
+    res.status(500).json({ message: 'Error retrieving subject teacher assignments.', error: error.message });
   }
 };
 
 // POST Controller to add a classroom
 const addClassroom = async (req, res) => {
   try {
-      const { roomNumber, capacity } = req.body;
+    const { roomNumber, capacity } = req.body;
 
-      // Check if the room number already exists
-      const existingClassroom = await Class.findOne({ roomNumber });
-      if (existingClassroom) {
-          return res.status(400).json({ message: 'Classroom with this room number already exists.' });
-      }
+    // Check if the room number already exists
+    const existingClassroom = await Class.findOne({ roomNumber });
+    if (existingClassroom) {
+      return res.status(400).json({ message: 'Classroom with this room number already exists.' });
+    }
 
-      // Create a new classroom
-      const newClassroom = new Class({ roomNumber, capacity });
-      await newClassroom.save();
+    // Create a new classroom
+    const newClassroom = new Class({ roomNumber, capacity });
+    await newClassroom.save();
 
-      res.status(201).json({ message: 'Classroom added successfully.', data: newClassroom });
+    res.status(201).json({ message: 'Classroom added successfully.', data: newClassroom });
   } catch (error) {
-      res.status(500).json({ message: 'Error adding classroom.', error: error.message });
+    res.status(500).json({ message: 'Error adding classroom.', error: error.message });
   }
 };
 
@@ -827,10 +828,10 @@ const getClassrooms = async (req, res) => {
 // File upload configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-      cb(null, 'uploads/'); // Upload directory
+    cb(null, 'uploads/'); // Upload directory
   },
   filename: (req, file, cb) => {
-      cb(null, `${Date.now()}-${file.originalname}`);
+    cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
 const upload = multer({ storage });
@@ -874,42 +875,42 @@ const uploadContent = async (req, res) => {
 // GET Controller to retrieve uploaded content
 const getContent = async (req, res) => {
   try {
-      const contents = await Content.find();
+    const contents = await Content.find();
 
-      res.status(200).json({ message: 'Content retrieved successfully.', data: contents });
+    res.status(200).json({ message: 'Content retrieved successfully.', data: contents });
   } catch (error) {
-      res.status(500).json({ message: 'Error retrieving content.', error: error.message });
+    res.status(500).json({ message: 'Error retrieving content.', error: error.message });
   }
 };
 
 // POST Controller to create assignment
 const postAssignment = async (req, res) => {
   try {
-      const {
-          assignmentTitle,
-          subject,
-          availableFor,
-          class: className,
-          section,
-          dueDate,
-          description,
-      } = req.body;
+    const {
+      assignmentTitle,
+      subject,
+      availableFor,
+      class: className,
+      section,
+      dueDate,
+      description,
+    } = req.body;
 
-      const newAssignment = new Assignment({
-          assignmentTitle,
-          subject,
-          availableFor,
-          class: className,
-          section,
-          dueDate,
-          description,
-          documentFile: req.file ? req.file.path : undefined,
-      });
-      await newAssignment.save();
+    const newAssignment = new Assignment({
+      assignmentTitle,
+      subject,
+      availableFor,
+      class: className,
+      section,
+      dueDate,
+      description,
+      documentFile: req.file ? req.file.path : undefined,
+    });
+    await newAssignment.save();
 
-      res.status(201).json({ message: 'Assignment created successfully.', data: newAssignment });
+    res.status(201).json({ message: 'Assignment created successfully.', data: newAssignment });
   } catch (error) {
-      res.status(500).json({ message: 'Error creating assignment.', error: error.message });
+    res.status(500).json({ message: 'Error creating assignment.', error: error.message });
   }
 };
 
@@ -941,7 +942,7 @@ const addLesson = async (req, res) => {
 };
 
 // Controller function to get all lessons (GET) without filters
- const getLessons = async (req, res) => {
+const getLessons = async (req, res) => {
   try {
     // Fetch all lessons from the database (no filter applied)
     const lessons = await Lesson.find();
@@ -955,7 +956,7 @@ const addLesson = async (req, res) => {
 };
 
 // Controller function to add a new student category (POST)
- const addStudentCategory = async (req, res) => {
+const addStudentCategory = async (req, res) => {
   const { type } = req.body;
 
   // Check if type is provided
@@ -981,7 +982,7 @@ const addLesson = async (req, res) => {
 };
 
 // Controller function to get all student categories (GET)
- const getStudentCategories = async (req, res) => {
+const getStudentCategories = async (req, res) => {
   try {
     // Fetch all student categories from the database
     const categories = await Student.find();
@@ -1069,7 +1070,7 @@ const addStudent = async (req, res) => {
       additionalInfo,
       customField1,
       randomPassword,
-      
+
       // Directly store parent details in the myParents array
       myParents: [
         { name: fatherName, occupation: fatherOccupation, phone: guardianPhone, relationship: 'Father' },
@@ -1137,7 +1138,7 @@ const getStudentsAdmission = async (req, res) => {
 // POST: Add a new holiday
 const addHoliday = async (req, res) => {
   const { fromDate, toDate, holidayName, holidayMessage } = req.body;
-  
+
   try {
     const newHoliday = new Holiday({ fromDate, toDate, holidayName, holidayMessage });
     await newHoliday.save();
@@ -1215,8 +1216,8 @@ const exportStudentsData = async (req, res) => {
       // Send Excel file to the client
       await workbook.xlsx.write(res);
       res.end();
-    } 
-    
+    }
+
     // Export to PDF
     else if (format === 'pdf') {
       const doc = new PDFDocument();
@@ -1235,7 +1236,7 @@ const exportStudentsData = async (req, res) => {
 
       // Add table headers
       const tableHeaders = [
-        'Admission No', 'First Name', 'Last Name', 'Father Name', 'Date of Birth', 
+        'Admission No', 'First Name', 'Last Name', 'Father Name', 'Date of Birth',
         'Class', 'Gender', 'Category', 'Attendance Status'
       ];
 
@@ -1263,7 +1264,7 @@ const exportStudentsData = async (req, res) => {
       // Finalize the PDF file
       doc.end();
     }
-    
+
     else {
       return res.status(400).json({ message: 'Invalid format. Please choose "excel" or "pdf".' });
     }
@@ -1274,7 +1275,7 @@ const exportStudentsData = async (req, res) => {
   }
 };
 // Controller function to get all attendance records
- const getAttendance = async (req, res) => {
+const getAttendance = async (req, res) => {
   try {
     // Fetch all attendance records from the database
     const attendanceRecords = await Attendance.find();
@@ -1288,7 +1289,7 @@ const exportStudentsData = async (req, res) => {
 };
 
 // Controller function to add a new student group
- const addStudentGroup = async (req, res) => {
+const addStudentGroup = async (req, res) => {
   const { groupName, students } = req.body;
 
   // Check if required fields are provided
@@ -1315,7 +1316,7 @@ const exportStudentsData = async (req, res) => {
 };
 
 // Controller function to get all student groups
- const getStudentGroups = async (req, res) => {
+const getStudentGroups = async (req, res) => {
   try {
     // Fetch all student groups from the database, including populated student data
     const studentGroups = await StudentGroup.find().populate('students', 'firstName lastName admissionNumber');  // Populating student details
@@ -1330,7 +1331,7 @@ const exportStudentsData = async (req, res) => {
 
 
 // Controller function to add a new fees group
- const addFeesGroup = async (req, res) => {
+const addFeesGroup = async (req, res) => {
   const { name, description } = req.body;
 
   // Check if required fields are provided
@@ -1357,7 +1358,7 @@ const exportStudentsData = async (req, res) => {
 };
 
 // Controller function to get all fees groups
- const getFeesGroups = async (req, res) => {
+const getFeesGroups = async (req, res) => {
   try {
     // Fetch all fees groups from the database
     const feesGroups = await Fee.find();
@@ -1371,7 +1372,7 @@ const exportStudentsData = async (req, res) => {
 };
 
 // Controller function to add a new fees type
- const addFeesType = async (req, res) => {
+const addFeesType = async (req, res) => {
   const { name, feesGroup, description } = req.body;
 
   // Check if required fields are provided
@@ -1399,7 +1400,7 @@ const exportStudentsData = async (req, res) => {
 };
 
 // Controller function to get all fees types
- const getFeesTypes = async (req, res) => {
+const getFeesTypes = async (req, res) => {
   try {
     // Fetch all fees types from the database
     const feesTypes = await Fee.find();
@@ -1464,7 +1465,7 @@ const addTransportRoute = async (req, res) => {
 };
 
 // Controller function to get all transport routes
- const getTransportRoutes = async (req, res) => {
+const getTransportRoutes = async (req, res) => {
   try {
     // Fetch all transport route records from the database
     const routes = await Transport.find();
@@ -1481,7 +1482,7 @@ const addTransportRoute = async (req, res) => {
 };
 
 // Controller function to add a vehicle
- const addVehicle = async (req, res) => {
+const addVehicle = async (req, res) => {
   const { vehicleNumber, vehicleModel, yearMade, driver, note } = req.body;
 
 
@@ -1507,7 +1508,7 @@ const addTransportRoute = async (req, res) => {
 };
 
 // Controller function to get all vehicles
- const getVehicles = async (req, res) => {
+const getVehicles = async (req, res) => {
   try {
     // Fetch all vehicle records from the database
     const vehicles = await Vehicle.find();
@@ -1524,7 +1525,7 @@ const addTransportRoute = async (req, res) => {
 };
 
 // Controller function to assign a vehicle to a route
- const assignVehicle = async (req, res) => {
+const assignVehicle = async (req, res) => {
   const { route, vehicle } = req.body;
 
 
@@ -1546,7 +1547,7 @@ const addTransportRoute = async (req, res) => {
 };
 
 // Controller function to get all vehicle assignments
- const getVehicleAssignments = async (req, res) => {
+const getVehicleAssignments = async (req, res) => {
   try {
     // Fetch all assignments from the database
     const assignments = await Vehicle.find()
@@ -1564,7 +1565,7 @@ const addTransportRoute = async (req, res) => {
 };
 
 // Controller function to add a new exam type
- const addExamType = async (req, res) => {
+const addExamType = async (req, res) => {
   const { examName } = req.body;
 
   if (!examName) {
@@ -1588,7 +1589,7 @@ const addTransportRoute = async (req, res) => {
 };
 
 // Controller function to get all exam types
- const getExamTypes = async (req, res) => {
+const getExamTypes = async (req, res) => {
   try {
     // Fetch all exam types from the database
     const examTypes = await ExamType.find();
@@ -1799,7 +1800,7 @@ const generateAdmitCard = async (req, res) => {
 
 
 // Controller function to get all exam schedules
- const getExamSchedules = async (req, res) => {
+const getExamSchedules = async (req, res) => {
   try {
     // Fetch all exam schedules from the database
     const examSchedules = await ExamSchedule.find();
@@ -2117,7 +2118,7 @@ const addHomework = async (req, res) => {
 
 
 // Controller to get all homework
- const getAllHomework = async (req, res) => {
+const getAllHomework = async (req, res) => {
   try {
     const homework = await Homework.find();  // Fetch all homework entries
     res.status(200).json(homework);  // Send homework data as JSON response
@@ -2191,7 +2192,7 @@ const getClassRoutine = async (req, res) => {
 
 
 // Controller to add a new assignment
- const addAssignment = async (req, res) => {
+const addAssignment = async (req, res) => {
   try {
     // Handle file upload
     let file = '';
@@ -2226,7 +2227,7 @@ const getClassRoutine = async (req, res) => {
 };
 
 // Controller to get assignments (with optional filters)
- const getAssignments = async (req, res) => {
+const getAssignments = async (req, res) => {
   try {
     const { class: className, section } = req.query;
 
@@ -2250,7 +2251,7 @@ const getClassRoutine = async (req, res) => {
 };
 
 // Controller to post a new syllabus
- const postSyllabus = async (req, res) => {
+const postSyllabus = async (req, res) => {
   try {
     let file = '';
     if (req.file) {
@@ -2277,7 +2278,7 @@ const getClassRoutine = async (req, res) => {
 };
 
 // Controller to get syllabus data
- const getSyllabus = async (req, res) => {
+const getSyllabus = async (req, res) => {
   try {
     const { class: className, section } = req.query;
 
@@ -2300,7 +2301,7 @@ const getClassRoutine = async (req, res) => {
   }
 };
 
- const addAttendance = async (req, res) => {
+const addAttendance = async (req, res) => {
   try {
     const { studentId, class: className, section, date, status } = req.body;
 
@@ -2338,13 +2339,13 @@ const createNotice = asyncHandler(async (req, res) => {
 
   // Step 1: Create a new notice document
   const newNotice = new Notice({
-      title,
-      description,
-      date,
-      class: className,
-      section,
-      targetAudience,
-      postedBy
+    title,
+    description,
+    date,
+    class: className,
+    section,
+    targetAudience,
+    postedBy
   });
 
   // Step 2: Save the new notice to the database
@@ -2352,8 +2353,8 @@ const createNotice = asyncHandler(async (req, res) => {
 
   // Step 3: Respond with the created notice
   res.status(201).json({
-      message: "Notice created successfully",
-      notice: createdNotice
+    message: "Notice created successfully",
+    notice: createdNotice
   });
 });
 
@@ -2665,7 +2666,7 @@ const getAllMarks = asyncHandler(async (req, res) => {
       // Determine pass/fail status
       const status = percentage >= 40 ? "Pass" : "Fail";
 
-      // Add subject details
+      // Add subject details including examType
       studentMarks[studentId].subjects.push({
         subject: mark.subject,
         marksObtained: mark.marksObtained,
@@ -2673,6 +2674,7 @@ const getAllMarks = asyncHandler(async (req, res) => {
         percentage: percentage.toFixed(2),
         grade,
         status,
+        examType: mark.examType, // ✅ Exam Type Added Here
       });
 
       // Update total obtained marks and total marks
@@ -2781,7 +2783,7 @@ const getClassSectionTopper = asyncHandler(async (req, res) => {
 
 
 // Controller to add a new staff member
- const addStaff = async (req, res) => {
+const addStaff = async (req, res) => {
   try {
     const { firstName, lastName, email, phone, position, department, gender, dateOfBirth, address, joiningDate, salary, employeeId, emergencyContact, profilePicture, qualifications } = req.body;
 
@@ -2816,7 +2818,7 @@ const getClassSectionTopper = asyncHandler(async (req, res) => {
 };
 
 // Controller to get all staff members
- const getAllStaff = async (req, res) => {
+const getAllStaff = async (req, res) => {
   try {
     const staff = await Staff.find(); // Get all staff from the database
 
@@ -2836,7 +2838,7 @@ const getClassSectionTopper = asyncHandler(async (req, res) => {
 
 
 // Controller function to handle file uploads and saving school details
- const updateSchoolDetails = async (req, res) => {
+const updateSchoolDetails = async (req, res) => {
   try {
     const { schoolName, address, contact, email, description } = req.body;
 
@@ -2845,20 +2847,20 @@ const getClassSectionTopper = asyncHandler(async (req, res) => {
     let schoolImageUrl = null;
 
     // Handle logo image upload
-if (req.files['logo']) {
-  const logoUpload = await cloudinary.uploader.upload(req.files['logo'][0].path, {
-    folder: 'school',  // Cloudinary folder to store images
-  });
-  logoUrl = logoUpload.secure_url;  // Get the URL of the uploaded logo
-}
+    if (req.files['logo']) {
+      const logoUpload = await cloudinary.uploader.upload(req.files['logo'][0].path, {
+        folder: 'school',  // Cloudinary folder to store images
+      });
+      logoUrl = logoUpload.secure_url;  // Get the URL of the uploaded logo
+    }
 
-// Handle school image upload
-if (req.files['schoolImage']) {
-  const schoolImageUpload = await cloudinary.uploader.upload(req.files['schoolImage'][0].path, {
-    folder: 'school',  // Cloudinary folder to store images
-  });
-  schoolImageUrl = schoolImageUpload.secure_url;  // Get the URL of the uploaded school image
-}
+    // Handle school image upload
+    if (req.files['schoolImage']) {
+      const schoolImageUpload = await cloudinary.uploader.upload(req.files['schoolImage'][0].path, {
+        folder: 'school',  // Cloudinary folder to store images
+      });
+      schoolImageUrl = schoolImageUpload.secure_url;  // Get the URL of the uploaded school image
+    }
 
     // Update school details in the database
     const admin = await Admin.findOneAndUpdate(
@@ -2966,6 +2968,78 @@ const addFee = async (req, res) => {
   }
 };
 
+const updateFeeStatus = async (req, res) => {
+  try {
+    const { feeId, newStatus, paidAmount } = req.body;
+
+    // Check if the new status is valid
+    if (!['Paid', 'Pending', 'Overdue'].includes(newStatus)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    // Find the fee entry by its ID
+    const fee = await Fee.findById(feeId);
+    if (!fee) {
+      return res.status(404).json({ message: "Fee not found" });
+    }
+
+    // If the status is being changed from 'Pending' to 'Paid'
+    if (fee.status === 'Pending' && newStatus === 'Paid') {
+      fee.status = 'Paid';
+      fee.paidAmount = fee.amount; // Mark the full amount as paid
+      fee.pendingPayment = 0; // Set pendingPayment to 0
+    }
+    // If the new status is 'Pending' and partial payment is being made
+    else if (newStatus === 'Pending' && paidAmount) {
+      if (paidAmount > fee.pendingPayment) {
+        return res.status(400).json({ message: "Paid amount cannot exceed pending amount" });
+      }
+      fee.pendingPayment -= paidAmount; // Subtract paid amount from pending payment
+      fee.paidAmount += paidAmount; // Add paid amount to paidAmount
+
+      // If all pending payment is paid, set status to 'Paid'
+      if (fee.pendingPayment === 0) {
+        fee.status = 'Paid';
+      } else {
+        fee.status = 'Pending';
+      }
+    }
+    // If the status is not 'Paid' and partial payment is being made, keep the status as Pending
+    else if (newStatus === 'Pending') {
+      fee.status = 'Pending';
+    }
+    else {
+      fee.status = newStatus;
+    }
+
+    // Save the updated fee entry
+    const updatedFee = await fee.save();
+
+    // Update the student’s fees array (if needed)
+    const student = await Student.findById(fee.studentId);
+    if (student) {
+      // Update the student’s fee entry with the new status and pendingPayment
+      const feeIndex = student.fees.findIndex(f => f._id.toString() === feeId);
+      if (feeIndex !== -1) {
+        student.fees[feeIndex] = {
+          ...student.fees[feeIndex],
+          status: updatedFee.status,
+          pendingPayment: updatedFee.pendingPayment,
+          paidAmount: updatedFee.paidAmount,
+        };
+        await student.save();
+      }
+    }
+
+    // Return the updated fee details
+    res.status(200).json({ message: "Fee status updated successfully", fee: updatedFee });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating fee status", error: error.message });
+  }
+};
+
+
+
 
 const getFeeDetails = async (req, res) => {
   try {
@@ -2984,6 +3058,37 @@ const getFeeDetails = async (req, res) => {
   }
 };
 
+
+// Controller to get fee details and calculate total paid and pending amount
+const getPaidAndPendingAmount = async (req, res) => {
+  try {
+    // Fetch fee details from the database
+    const fees = await Fee.find({}); // You can add filters like studentId or class if needed
+
+    // Initialize totals
+    let totalPaid = 0;
+    let totalPending = 0;
+
+    // Iterate over the fees to calculate total paid and pending
+    fees.forEach(fee => {
+      totalPaid += fee.paidAmount;
+      totalPending += fee.pendingPayment;
+    });
+
+    // Send the response with total amounts and the fee details
+    res.status(200).json({
+      message: 'Fee details fetched successfully',
+      totalPaid,
+      totalPending
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: 'An error occurred while fetching fee details',
+      error: error.message
+    });
+  }
+};
 
 
 // Controller to get unique classes
@@ -3037,32 +3142,67 @@ const getStudentByFilter = async (req, res) => {
 
 
 const promoteStudent = async (req, res) => {
-  const { studentId } = req.params; // Extract studentId from route params
-  const { newClass, section, roll, message } = req.body; // Extract other fields from request body
+  const { studentId, newClass, section, overallPercentage, message } = req.body; // Extract fields from request body
 
   try {
-    // Find and update the student's details
-    const updatedStudent = await Student.findByIdAndUpdate(
-      studentId,
-      {
-        class: newClass,
-        section,
-        roll,
-      },
-      { new: true } // Return the updated document
-    );
+    if (studentId) {
+      // Promote a single student by studentId
+      const updatedStudent = await Student.findByIdAndUpdate(
+        studentId,
+        {
+          class: newClass,
+          section,
+        },
+        { new: true } // Return the updated document
+      );
 
-    if (!updatedStudent) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Student not found" });
+      if (!updatedStudent) {
+        return res.status(404).json({
+          success: false,
+          message: "Student not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: message || "Student promoted successfully",
+        updatedStudent,
+      });
+    } else if (overallPercentage) {
+      // Bulk promote students based on overallPercentage
+      const studentsToPromote = await Student.find({
+        overallPercentage: { $gte: overallPercentage }, // Find students with percentage greater than or equal to the specified value
+      });
+
+      if (studentsToPromote.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No students found with the specified percentage",
+        });
+      }
+
+      // Step 2: Bulk promote students by updating their class and section
+      const updatedStudents = await Student.updateMany(
+        { _id: { $in: studentsToPromote.map(student => student._id) } }, // Update the found students
+        {
+          $set: {
+            class: newClass,
+            section,
+          },
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: message || "Students promoted successfully in bulk",
+        updatedStudents,
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide either studentId or overallPercentage for promotion.",
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: message || "Student promoted successfully",
-      updatedStudent,
-    });
   } catch (error) {
     console.error("Error promoting student:", error);
     return res.status(500).json({
@@ -3071,6 +3211,7 @@ const promoteStudent = async (req, res) => {
     });
   }
 };
+
 
 // GET: Get all holidays
 const getHolidays = async (req, res) => {
@@ -3102,46 +3243,29 @@ const getAllParents = async (req, res) => {
 };
 
 const getAllLeaves = asyncHandler(async (req, res) => {
-  // Step 1: Fetch all leaves from the Leave model
-  const leaves = await Leave.find();
+  try {
+    // Fetching all leaves and populating student, teacher, and parent details
+    const leaves = await Leave.find()
+      .populate('studentId', 'firstName lastName class section') // Populate studentId with selected fields
+      .populate('teacherId', 'firstName lastName') // Populate teacherId with selected fields
+      .populate('parentId', 'firstName lastName contact') // Populate parentId with selected fields
+      .exec();
 
-  if (!leaves || leaves.length === 0) {
-    return res.status(404).json({ message: "No leaves found" });
+    if (!leaves || leaves.length === 0) {
+      return res.status(404).json({ message: "No leaves found" });
+    }
+
+    // Respond with the fetched leaves
+    return res.status(200).json({
+      message: "All leaves retrieved successfully.",
+      leaves,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      message: "Error fetching leaves",
+    });
   }
-
-  // Step 2: Fetch student, teacher, and parent details based on the IDs
-  const populatedLeaves = await Promise.all(
-    leaves.map(async (leave) => {
-      // Fetch Parent details if parentId exists
-      if (leave.parentId) {
-        const parent = await Parent.findById(leave.parentId);
-        leave.parentName = `${parent.firstName} ${parent.lastName}`;
-        leave.parentContact = parent.contact;  // Add any additional parent details
-      }
-
-      // Fetch student details if studentId exists
-      if (leave.studentId) {
-        const student = await Student.findById(leave.studentId);
-        leave.studentName = `${student.firstName} ${student.lastName}`;
-        leave.class = student.class;
-        leave.section = student.section;
-      }
-
-      // Fetch teacher details if teacherId exists
-      if (leave.teacherId) {
-        const teacher = await Teacher.findById(leave.teacherId);
-        leave.teacherName = `${teacher.firstName} ${teacher.lastName}`;
-      }
-
-      return leave;
-    })
-  );
-
-  // Step 3: Return all leaves with expanded details (student, teacher, and parent)
-  return res.status(200).json({
-    message: "Leaves fetched successfully",
-    leaves: populatedLeaves,
-  });
 });
 
 const updateLeaveStatus = asyncHandler(async (req, res) => {
@@ -3175,113 +3299,191 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
 });
 
 
+// Controller to get all complaints and expand student details
+const getAllComplaints = async (req, res) => {
+  try {
+    // Fetching all complaints and populating student details
+    const complaints = await ComplaintModel.find()
+      .populate('studentId', 'firstName lastName class section roll') // Populate studentId with selected fields
+      .exec();
+
+    // Respond with the fetched complaints
+    res.status(200).json({
+      success: true,
+      complaints,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch complaints. Please try again later.",
+    });
+  }
+};
 
 
-export { 
+const createMeeting = async (req, res) => {
+  try {
+    const { date, time, agenda, location } = req.body;
+
+    // Create a new meeting with no teacher-specific IDs
+    const meeting = new Meeting({
+      date,
+      time,
+      agenda,
+      location,
+    });
+
+    await meeting.save();
+
+    // Push the meeting ID to the meetings[] array of all teachers
+    await Teacher.updateMany(
+      {}, // Apply the update to all teachers
+      { $push: { meetings: meeting._id } } // Push the meeting ID into each teacher's meetings array
+    );
+
+    return res.status(201).json({
+      message: "Meeting created successfully",
+      meeting
+    });
+
+  } catch (error) {
+    console.error("Error creating meeting:", error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+
+const getAllMeetings = async (req, res) => {
+  try {
+    // Fetch all meetings from the database
+    const meetings = await Meeting.find();
+
+    if (meetings.length === 0) {
+      return res.status(404).json({ message: "No meetings found" });
+    }
+
+    return res.status(200).json({
+      message: "Meetings fetched successfully",
+      meetings
+    });
+  } catch (error) {
+    console.error("Error fetching meetings:", error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+
+export {
   adminRegistration,
-   adminLogin,
-    adminLogout,
-      getStudents,
-    createStudent,
-    updateStudent,
-    deleteStudent,
-    getTeachers,
-    updateTeacher,
-    deleteTeacher,
-    getClasses,
-    createClass,
-    markAttendance,
-    getAttendance,
-    addComplaint,
-    getComplaints,
-    addPhoneCall,
-    getPhoneCalls,
-    addCertificate,
-    getCertificates,
-    addSection,
-    getSections,
-    assignClassTeacher,
-    getClassTeachers,
-    assignSubjectTeacher,
-    getSubjectAssignments,
-    addClassroom,
-    getClassrooms,
-    uploadContent,
-    getContent,
-    postAssignment,
-    addLesson,
-    getLessons,
-    addStudentCategory,
-    getStudentCategories,
-    addStudent,
-    getStudentsAdmission,
-    addStudentGroup,
-    getStudentGroups,
-    addFeesGroup,
-    getFeesGroups,
-    addFeesType,
-    getFeesTypes,
-    addTransportRoute,
-    getTransportRoutes,
-    addVehicle,
-    getVehicles,
-    assignVehicle,
-    getVehicleAssignments,
-    addExamType,
-    getExamTypes,
-    addExamSchedule,
-    getExamSchedules,
-    generateAdmitCard,
-    addVisitor,
-    addClass,
-    addTopic,
-    getSubjectWiseAttendance,
-    exportStudentsData,
-    addHomework,
-    getAllHomework,
-    createSeatPlan,
-    getSeatPlan,
-    getStudentById,
-    getExamSchedule,
-    createOrUpdateClassRoutine,
-    getClassRoutine,
-    addAssignment,
-    getAssignments,
-    postSyllabus,
-    getSyllabus,
-    addAttendance,
-    createNotice,
-    createTransportAndAssignToStudent,
-    deleteSection,
-    updateSection,
-    updateClass,
-    removeClass,
-    createSubjectByAdmin,
-    getSubjects,
-    getSubjectNames,
-    getTopics,
-    generateAdmitCards,
-    addVisit,
-    getVisits,
-    getNotices,
-    createTeacher,
-      getAllTeachers,
-      addDriver,
-      getDrivers,
-      getAllMarks,
-      addStaff,
-      getAllStaff,
-      updateSchoolDetails,
-      createSchool,
-      addFee,
-      getFeeDetails,
-      getStudentByFilter,
-      getStudentClasses,
-      promoteStudent,
-      getClassSectionTopper,
-      addHoliday,
-      getHolidays,
-      getAllParents,
-      getAllLeaves,
-      updateLeaveStatus
+  adminLogin,
+  adminLogout,
+  getStudents,
+  createStudent,
+  updateStudent,
+  deleteStudent,
+  getTeachers,
+  updateTeacher,
+  deleteTeacher,
+  getClasses,
+  createClass,
+  markAttendance,
+  getAttendance,
+  addComplaint,
+  getComplaints,
+  addPhoneCall,
+  getPhoneCalls,
+  addCertificate,
+  getCertificates,
+  addSection,
+  getSections,
+  assignClassTeacher,
+  getClassTeachers,
+  assignSubjectTeacher,
+  getSubjectAssignments,
+  addClassroom,
+  getClassrooms,
+  uploadContent,
+  getContent,
+  postAssignment,
+  addLesson,
+  getLessons,
+  addStudentCategory,
+  getStudentCategories,
+  addStudent,
+  getStudentsAdmission,
+  addStudentGroup,
+  getStudentGroups,
+  addFeesGroup,
+  getFeesGroups,
+  addFeesType,
+  getFeesTypes,
+  addTransportRoute,
+  getTransportRoutes,
+  addVehicle,
+  getVehicles,
+  assignVehicle,
+  getVehicleAssignments,
+  addExamType,
+  getExamTypes,
+  addExamSchedule,
+  getExamSchedules,
+  generateAdmitCard,
+  addVisitor,
+  addClass,
+  addTopic,
+  getSubjectWiseAttendance,
+  exportStudentsData,
+  addHomework,
+  getAllHomework,
+  createSeatPlan,
+  getSeatPlan,
+  getStudentById,
+  getExamSchedule,
+  createOrUpdateClassRoutine,
+  getClassRoutine,
+  addAssignment,
+  getAssignments,
+  postSyllabus,
+  getSyllabus,
+  addAttendance,
+  createNotice,
+  createTransportAndAssignToStudent,
+  deleteSection,
+  updateSection,
+  updateClass,
+  removeClass,
+  createSubjectByAdmin,
+  getSubjects,
+  getSubjectNames,
+  getTopics,
+  generateAdmitCards,
+  addVisit,
+  getVisits,
+  getNotices,
+  createTeacher,
+  getAllTeachers,
+  addDriver,
+  getDrivers,
+  getAllMarks,
+  addStaff,
+  getAllStaff,
+  updateSchoolDetails,
+  createSchool,
+  addFee,
+  getFeeDetails,
+  getStudentByFilter,
+  getStudentClasses,
+  promoteStudent,
+  getClassSectionTopper,
+  addHoliday,
+  getHolidays,
+  getAllParents,
+  getAllLeaves,
+  updateLeaveStatus,
+  updateFeeStatus,
+  getPaidAndPendingAmount,
+  getAllComplaints,
+  createMeeting,
+  getAllMeetings
 }

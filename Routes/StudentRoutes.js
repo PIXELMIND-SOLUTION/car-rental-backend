@@ -25,7 +25,9 @@ import {
     getAdmitCard,
     getStudentDetails,
     loginStudent,
-    getFeeDetailsByUserId
+    getFeeDetailsByUserId,
+    getFeeSummaryByUserId,
+    getStudentComplaints
 } from '../Controller/StudentController.js'
 
 router.get('/get-exam-schedule/:studentId', getExamScheduleByStudent)
@@ -47,6 +49,10 @@ router.get('/get-transport/:studentId', getStudentTransport);
 router.get('/get-details/:studentId', getStudentDetails);
 router.post('/login', loginStudent)
 router.get('/fees/:userId', getFeeDetailsByUserId);
+router.get('/fees-summary/:userId', getFeeSummaryByUserId);
+router.get('/my-complaint/:userId', getStudentComplaints);
+
+
 
 
 

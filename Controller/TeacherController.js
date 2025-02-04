@@ -7,6 +7,7 @@ import Attendance from '../Models/Attendance.js';
 import Student from '../Models/Student.js';
 import Marks from '../Models/Mark.js';
 import Exam from '../Models/ExamShedule.js';
+import Meeting from '../Models/Meeting.js';
 import Leave from '../Models/Leave.js';
 import Routine from '../Models/Routine.js';
 import ComplaintModel from '../Models/Complaint.js';
@@ -256,9 +257,19 @@ const getSyllabus = async (req, res) => {
             subject, // Add subject to the attendance
             attendanceStatus,
         });
+
+        // Step 3: Create and save a new Attendance record
+        const newAttendance = new Attendance({
+            studentId, // Reference to the student
+            date,
+            subject,
+            attendanceStatus,
+        });
+
+        await newAttendance.save();
     }
 
-    // Step 3: Save the updated student record
+    // Step 4: Save the updated student record
     await student.save();
 
     res.status(200).json({
@@ -271,28 +282,25 @@ const getSyllabus = async (req, res) => {
 
 const postMarksForStudent = asyncHandler(async (req, res) => {
   const { studentId } = req.params;
-  const { subject, marksObtained, totalMarks, examDate, examType } = req.body;
+  const { subject, marksObtained, totalMarks, examDate, examType, examName } = req.body;
 
-  // Step 1: Create a new marks entry
-  const newMark = {
-    subject,
-    marksObtained,
-    totalMarks,
-    examDate,
-    examType
-  };
-
-  // Step 2: Find the student by studentId
   const student = await Student.findById(studentId);
 
   if (!student) {
     return res.status(404).json({ message: "Student not found" });
   }
 
-  // Step 3: Push the new marks into the student's marks array
-  student.marks.push(newMark);
+  const newMark = await Marks.create({
+    studentId: studentId, // Ensure correct field name
+    subject,
+    marksObtained,
+    totalMarks,
+    examDate,
+    examType,
+    examName,
+  });
 
-  // Step 4: Save the updated student document
+  student.marks.push(newMark);
   await student.save();
 
   res.status(201).json({
@@ -300,6 +308,7 @@ const postMarksForStudent = asyncHandler(async (req, res) => {
     marks: newMark,
   });
 });
+
 
 
 const addExamSchedule = asyncHandler(async (req, res) => {
@@ -626,7 +635,7 @@ const getStudentsAdmission = async (req, res) => {
 const fileComplaint = async (req, res) => {
   const { studentId } = req.params
   try {
-    const { title, description } = req.body;
+    const { title, description, complaintBy } = req.body;
 
 
 
@@ -638,6 +647,7 @@ const fileComplaint = async (req, res) => {
       studentId,
       title,
       description,
+      complaintBy
     });
 
     await complaint.save();
@@ -783,6 +793,34 @@ const getTeacherSubject = async (req, res) => {
   }
 };
 
+// Fetch teacher's meetings by teacherId
+const getTeacherMeetings = async (req, res) => {
+  const { teacherId } = req.params;
+
+  try {
+    // Fetch the teacher based on teacherId
+    const teacher = await Teacher.findById(teacherId);
+
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' });
+    }
+
+    // Fetch all the meeting details based on the meeting IDs stored in teacher's 'meetings' array
+    const meetingIds = teacher.meetings;
+    const meetings = await Meeting.find({ '_id': { $in: meetingIds } });
+
+    if (meetings.length === 0) {
+      return res.status(404).json({ message: 'No meetings found for this teacher' });
+    }
+
+    return res.status(200).json({ message: 'Meetings fetched successfully', meetings });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error fetching meetings' });
+  }
+};
+
+
 export { getTeachers,
      getTeacherById, 
      updateTeacher, 
@@ -812,6 +850,7 @@ export { getTeachers,
       createTeacher,
       getAllTeachers,
       teacherLogin,
-      getTeacherSubject
+      getTeacherSubject,
+      getTeacherMeetings
 
      };

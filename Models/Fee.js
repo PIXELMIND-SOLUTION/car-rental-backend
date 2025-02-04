@@ -7,7 +7,7 @@ const feeSchema = new mongoose.Schema({
   },
   feesType: {
     type: String,
-    enum: ["Tuition", "Exam", "Other"], // You can extend the fee types as needed
+    enum: ["Tuition", "Exam", "Admission", "Transport", "Monthly", "Other"], // You can extend the fee types as needed
   },
   invoiceNumber: {
     type: String,

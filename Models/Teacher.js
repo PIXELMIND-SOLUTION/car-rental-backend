@@ -46,6 +46,8 @@ const teacherSchema = new mongoose.Schema({
     },
   ],
   assignedHomework: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Homework' }],
+  meetings: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Meeting' }],
+
   role: { type: String, default: 'Teacher' }
 }, { timestamps: true });
 
