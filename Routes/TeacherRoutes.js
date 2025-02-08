@@ -18,7 +18,12 @@ import {
     fileComplaint,
     teacherLogin,
     getTeacherSubject,
-    getTeacherMeetings
+    getTeacherMeetings,
+    postAssignment,
+    getHomeworkForClassSection,
+    getTeacherLeaves,
+    createMeeting,
+    getMeetings,
 } from '../Controller/TeacherController.js';
 
 
@@ -29,16 +34,22 @@ router.get('/get-attendance', getStudentsAttendance);
 router.put('/update-attendance/:studentId/:attendanceId', updateStudentAttendance);
 router.post('/add-homework', createHomework);
 router.get('/homeworks', getHomeworks);
-router.put('/update-status/:homeworkId', updateHomeworkStatus);
+router.get('/get-homeworks', getHomeworkForClassSection);
+router.put('/update-status/:studentId/:homeworkId', updateHomeworkStatus);
 router.get('/marks', getAllMarks);
 router.get('/classroutine', getClassRoutine);
-router.post('/apply-leave', applyForLeave);
+router.post('/apply-leave/:teacherId', applyForLeave);
 router.get('/leaves', getAllLeaves);
+router.get('/my-leaves/:teacherId', getTeacherLeaves);
 router.get('/students', getStudentsAdmission);
 router.post('/add-complaint/:studentId', fileComplaint);
 router.post('/login', teacherLogin);
 router.get('/subjects/:teacherId', getTeacherSubject);
 router.get('/meetings/:teacherId', getTeacherMeetings);
+router.post('/post-assignment', postAssignment);
+router.post("/meetings", createMeeting);
+router.get("/meetings", getMeetings);
+
 
 
 

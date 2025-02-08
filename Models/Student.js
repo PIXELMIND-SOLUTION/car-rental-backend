@@ -345,9 +345,57 @@ routine: [
     _id: { type: mongoose.Schema.Types.ObjectId, }
   }
 ],
+assignments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Assignment' }], // New Field
 complaints: [
   { type: mongoose.Schema.Types.ObjectId, ref: "Complaint" } // Reference to complaints against the student
 ],
+submissions: [
+  {
+    homeworkId: { type: mongoose.Schema.Types.ObjectId, ref: "Homework" },
+    status: { type: String, default: "Pending" },
+    submissionDate: Date,
+  },
+],
+homework: [
+  {
+    homeworkId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Homework',
+    },
+    homeworkTitle: {
+      type: String,
+    },
+    subject: {
+      type: String,
+    },
+    description: {
+      type: String,
+    },
+    marks: {
+      type: Number,
+    },
+    homeworkDate: {
+      type: Date,
+    },
+    submissionDate: {
+      type: Date,
+      default: null
+    },
+    status: {
+      type: String,
+      enum: ['Assigned', 'Submitted', 'Graded'],
+      default: 'Assigned'
+    },
+    feedback: {
+      type: String,
+      default: null
+    },
+    homeworkBy: {type: String},
+    // Any other fields you'd like to include (e.g., notes, attachments, etc.)
+  }
+],
+meetings: [{ type: mongoose.Schema.Types.ObjectId, ref: "Meeting" }]
+
 
 
 }, { timestamps: true });

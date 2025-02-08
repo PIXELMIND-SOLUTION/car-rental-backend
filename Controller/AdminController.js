@@ -1032,6 +1032,7 @@ const addStudent = async (req, res) => {
     schoolContact,
     additionalInfo,
     customField1,
+    category, // Include category field here
   } = req.body;
 
   try {
@@ -1134,6 +1135,28 @@ const getStudentsAdmission = async (req, res) => {
     res.status(500).json({ message: 'Error fetching students', error: error.message });
   }
 };
+
+const getStudentDetails = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // Fetch the student details by ID
+    const student = await Student.findById(studentId);
+
+    // Check if the student exists
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Return success response with student details
+    res.status(200).json({ message: 'Student details fetched successfully', student });
+  } catch (error) {
+    // Handle errors during the fetch operation
+    res.status(500).json({ message: 'Error fetching student details', error: error.message });
+  }
+};
+
+
 
 // POST: Add a new holiday
 const addHoliday = async (req, res) => {
@@ -3373,6 +3396,153 @@ const getAllMeetings = async (req, res) => {
   }
 };
 
+const getAllStudentLeaves = asyncHandler(async (req, res) => {
+  // Step 1: Retrieve all students
+  const students = await Student.find();
+
+  if (!students || students.length === 0) {
+    return res.status(404).json({ message: "No students found" });
+  }
+
+  // Step 2: Extract the leave data, class, and section from each student
+  const allLeaves = students.map(student => ({
+    studentId: student._id,
+    studentName: `${student.firstName} ${student.lastName}`,
+    class: student.class,        // Assuming class is stored as 'class'
+    section: student.section,    // Assuming section is stored as 'section'
+    leaves: student.leaves,      // Extracting leave data
+  }));
+
+  // Step 3: Respond with the leave data including class and section
+  res.status(200).json({
+    message: "All leaves retrieved successfully",
+    allLeaves,
+  });
+});
+
+const updateStudentLeaveStatus = asyncHandler(async (req, res) => {
+  const { studentId, leaveId } = req.params;
+  const { status } = req.body;  // Only expecting 'status' in the request body
+
+  // Step 1: Find the student by ID
+  const student = await Student.findById(studentId);
+
+  if (!student) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  // Step 2: Find the leave by leaveId
+  const leave = student.leaves.id(leaveId);
+
+  if (!leave) {
+    return res.status(404).json({ message: "Leave not found" });
+  }
+
+  // Step 3: Update the leave status
+  if (status) {
+    leave.status = status;
+  }
+
+  // Save the updated student document
+  await student.save();
+
+  // Step 4: Respond with the updated leave data
+  res.status(200).json({
+    message: "Leave status updated successfully",
+    leave: {
+      leaveId: leave._id,  // Include leaveId
+      studentId: student._id, // Include studentId
+      status: leave.status,
+    },
+  });
+});
+
+const updateTeacherLeaveStatus = asyncHandler(async (req, res) => {
+  const { teacherId, leaveId } = req.params;
+  const { status } = req.body;  // Only expecting 'status' in the request body
+
+  // Step 1: Find the student by ID
+  const student = await Teacher.findById(teacherId);
+
+  if (!student) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  // Step 2: Find the leave by leaveId
+  const leave = student.leaves.id(leaveId);
+
+  if (!leave) {
+    return res.status(404).json({ message: "Leave not found" });
+  }
+
+  // Step 3: Update the leave status
+  if (status) {
+    leave.status = status;
+  }
+
+  // Save the updated student document
+  await student.save();
+
+  // Step 4: Respond with the updated leave data
+  res.status(200).json({
+    message: "Leave status updated successfully",
+    leave: {
+      leaveId: leave._id,  // Include leaveId
+      teacherId: student._id, // Include studentId
+      status: leave.status,
+    },
+  });
+});
+
+
+
+
+const getAllTeachersWithLeaves = asyncHandler(async (req, res) => {
+  try {
+    // Find all teachers where the 'leaves' array is not empty
+    const teachers = await Teacher.find({ "leaves.0": { $exists: true } });
+
+    if (!teachers.length) {
+      return res.status(404).json({ message: "No teachers found with leaves" });
+    }
+
+    // For each teacher, populate the leave details
+    const teacherLeaves = [];
+
+    for (const teacher of teachers) {
+      const leaveIds = teacher.leaves.map(leave => leave._id);
+      const leaves = await Leave.find({ _id: { $in: leaveIds } });
+
+      // Format the leave data for each teacher
+      const leaveData = leaves.map((leave) => ({
+        leaveId: leave._id,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        reason: leave.reason,
+        leaveType: leave.leaveType, // Assuming leaveType exists in the Leave model
+        status: leave.status
+      }));
+
+      teacherLeaves.push({
+        teacherName: teacher.name,  // Assuming teacher has 'name' field
+        teacherId: teacher._id,
+        leaves: leaveData
+      });
+    }
+
+    // Send the teacher and leave data as response
+    res.status(200).json({
+      message: "Teachers with leaves fetched successfully",
+      teachers: teacherLeaves,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+
+
+
 
 export {
   adminRegistration,
@@ -3485,5 +3655,10 @@ export {
   getPaidAndPendingAmount,
   getAllComplaints,
   createMeeting,
-  getAllMeetings
+  getAllMeetings,
+  getAllStudentLeaves,
+  updateStudentLeaveStatus,
+  getAllTeachersWithLeaves,
+  updateTeacherLeaveStatus,
+  getStudentDetails
 }

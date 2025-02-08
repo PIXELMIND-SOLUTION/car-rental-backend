@@ -1,26 +1,20 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const { Schema, model } = mongoose;
 
-const meetingSchema = new Schema({
-  date: {
-    type: Date,
+const meetingSchema = new Schema(
+  {
+    meetingLink: { type: String, required: true },
+    class: { type: String, required: true },
+    section: { type: String, required: true },
+    meetingTime: { type: Date, required: true }, // Stores both date and time
+    subject: { type: String, required: true },
+    agenda: { type: String },
+    location: { type: String },
   },
-  time: {
-    type: String,
-  },
-  agenda: {
-    type: String,
-  },
-  location: {
-    type: String,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  { timestamps: true }
+);
 
-const Meeting = model('Meeting', meetingSchema);
+const Meeting = model("Meeting", meetingSchema);
 
 export default Meeting;

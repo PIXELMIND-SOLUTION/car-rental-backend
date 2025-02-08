@@ -95,7 +95,12 @@ import {
   getPaidAndPendingAmount,
   getAllComplaints,
   createMeeting,
-  getAllMeetings
+  getAllMeetings,
+  getAllStudentLeaves,
+  updateStudentLeaveStatus,
+  getAllTeachersWithLeaves,
+  updateTeacherLeaveStatus,
+  getStudentDetails
 } from '../Controller/AdminController.js'
 
 // Configure multer for file uploads
@@ -139,6 +144,7 @@ router.post('/add-category', addStudentCategory);
 router.get('/get-category', getStudentCategories);
 router.post('/add-student', addStudent);
 router.get('/get-student', getStudentsAdmission);
+router.get('/get-studentdetails/:studentId', getStudentDetails);
 router.get('/get-attendance', getAttendance);
 router.post('/add-fees-group', addFeesGroup);
 router.get('/get-fees-group', getFeesGroups);
@@ -205,6 +211,10 @@ router.get('/complaint', getAllComplaints);
 router.put('/approve-leave/:leaveId', updateLeaveStatus);
 router.post('/create-meeting', createMeeting);
 router.get('/meetings', getAllMeetings);
+router.get('/student-leaves', getAllStudentLeaves);
+router.get('/teacher-leaves', getAllTeachersWithLeaves);
+router.put('/student-leaveupdate/:studentId/:leaveId', updateStudentLeaveStatus);
+router.put('/teacher-leaveupdate/:teacherId/:leaveId', updateTeacherLeaveStatus);
 router.post('/settings', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'schoolImage', maxCount: 1 }]), updateSchoolDetails);
 
 

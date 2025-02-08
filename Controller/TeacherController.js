@@ -12,6 +12,7 @@ import Leave from '../Models/Leave.js';
 import Routine from '../Models/Routine.js';
 import ComplaintModel from '../Models/Complaint.js';
 import generateRefreshToken from '../config/refreshtoken.js';
+import Assignment from '../Models/Assignment.js';
 import generateToken from '../config/jwtToken.js';
 import multer from 'multer'
 
@@ -438,50 +439,163 @@ const updateStudentAttendance = async (req, res) => {
 
 const createHomework = async (req, res) => {
   try {
-      // Destructure data from request body
-      const { class: studentClass, subject, section, homeworkDate, submissionDate, marks, file, description, homeworkTitle, teacherId } = req.body;
+    // Destructure data from request body
+    const { class: studentClass, section, subject, homeworkDate, submissionDate, description, homeworkTitle, homeworkBy } = req.body;
 
-      // Create a new homework entry with homeworkTitle
-      const newHomework = new Homework({
-          class: studentClass,
-          subject,
-          section,
-          homeworkDate,
-          submissionDate,
-          marks,
-          description,
-          homeworkTitle, // Include homeworkTitle
+    // Create a new homework entry with homeworkTitle and other details
+    const newHomework = new Homework({
+      class: studentClass,
+      section,
+      subject,
+      homeworkDate,
+      submissionDate,
+      description,
+      homeworkTitle,
+      homeworkBy,  // Assign the teacher's name
+    });
+
+    // Save the new homework entry to the database
+    const savedHomework = await newHomework.save();
+
+    // Find the teacher by name
+    const teacher = await Teacher.findOne({ name: homeworkBy });
+
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' });
+    }
+
+    // Add the newly created homework to the teacher's assignedHomework array
+    teacher.assignedHomework.push(savedHomework._id);
+    await teacher.save();
+
+    // Find all students in the given class and section
+    const students = await Student.find({ class: studentClass, section: section });
+
+    // Update each student's homework array with the new homework
+    for (const student of students) {
+      student.homework.push({
+        homeworkId: savedHomework._id,
+        status: "Assigned",
+        submissionDate: null,  // No submission yet
       });
 
-      // Save the new homework entry to the database
-      const savedHomework = await newHomework.save();
+      await student.save();
+    }
 
-      // Find the teacher by ID and add the homework ID to assignedHomework array
-      const teacher = await Teacher.findById(teacherId);
-
-      if (!teacher) {
-          return res.status(404).json({ message: 'Teacher not found' });
-      }
-
-      // Add the newly created homework to the teacher's assignedHomework array
-      teacher.assignedHomework.push(savedHomework._id);
-
-      // Save the teacher with the updated assignedHomework field
-      await teacher.save();
-
-      // Send a success response
-      res.status(201).json({
-          message: 'Homework created successfully and assigned to teacher!',
-          homework: savedHomework,
-      });
+    // Send a success response
+    res.status(201).json({
+      message: 'Homework created successfully, assigned to teacher, and students updated!',
+      homework: savedHomework,
+    });
   } catch (error) {
-      // Handle any errors that occur during the process
-      res.status(500).json({
-          message: 'Error creating homework',
-          error: error.message,
-      });
+    // Handle any errors that occur during the process
+    res.status(500).json({
+      message: 'Error creating homework',
+      error: error.message,
+    });
   }
 };
+
+
+const getHomeworkForClassSection = async (req, res) => {
+  try {
+    // Destructure the class and section from request query parameters
+    const { class: studentClass, section } = req.query;
+
+    if (!studentClass || !section) {
+      return res.status(400).json({ message: 'Class and section are required' });
+    }
+
+    // Find all students in the given class and section
+    const students = await Student.find({ class: studentClass, section: section });
+
+    if (!students || students.length === 0) {
+      return res.status(404).json({ message: 'No students found in this class and section' });
+    }
+
+    // Map through students and fetch their homework along with firstName and lastName
+    const homeworkAssignments = await Promise.all(
+      students.map(async (student) => {
+        // Fetch the homework assigned to the student
+        const studentHomework = await Homework.find({
+          _id: { $in: student.homework.map(hw => hw.homeworkId) }
+        });
+
+        return {
+          studentId: student._id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          homework: studentHomework.map(hw => ({
+            homeworkId: hw._id,
+            homeworkTitle: hw.homeworkTitle,
+            homeworkDate: hw.homeworkDate,
+            status: student.homework.find(hwData => hwData.homeworkId.toString() === hw._id.toString()).status,
+            submissionDate: student.homework.find(hwData => hwData.homeworkId.toString() === hw._id.toString()).submissionDate,
+          })),
+        };
+      })
+    );
+
+    // Send a success response
+    res.status(200).json({
+      message: 'Homework retrieved successfully',
+      data: homeworkAssignments,
+    });
+  } catch (error) {
+    // Handle any errors that occur during the process
+    res.status(500).json({
+      message: 'Error retrieving homework',
+      error: error.message,
+    });
+  }
+};
+
+
+const updateHomeworkStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const { studentId, homeworkId } = req.params;
+
+    // Find the student
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Find the homework entry for the student
+    const homeworkEntry = student.homework.find(hw => hw.homeworkId.toString() === homeworkId);
+    if (!homeworkEntry) {
+      return res.status(404).json({ message: 'Homework not found for this student' });
+    }
+
+    // Update the status
+    homeworkEntry.status = status;
+
+    // If status is changed to "submitted," update submission date
+    if (status.toLowerCase() === 'submitted') {
+      homeworkEntry.submissionDate = new Date();
+    }
+
+    // Save the updated student document
+    await student.save();
+
+    res.status(200).json({
+      message: 'Homework status updated successfully',
+      data: {
+        studentId: student._id,
+        homeworkId: homeworkEntry.homeworkId,
+        status: homeworkEntry.status,
+        submissionDate: homeworkEntry.submissionDate,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error updating homework status',
+      error: error.message,
+    });
+  }
+};
+
 
 
 // Controller to handle GET request for fetching all homework entries
@@ -512,7 +626,7 @@ const getHomeworks = async (req, res) => {
 };
 
 // Update homework status
-const updateHomeworkStatus = async (req, res) => {
+const updateHomeworkStatuss = async (req, res) => {
   const { homeworkId } = req.params; // homeworkId from the URL params
   const { status } = req.body; // status from the request body
 
@@ -572,20 +686,35 @@ const getClassRoutine = async (req, res) => {
 };
 
 
-// Apply for leave controller
 const applyForLeave = asyncHandler(async (req, res) => {
   const { teacherId } = req.params;
-  const { startDate, endDate, reason } = req.body;
+  const { startDate, endDate, reason, leaveType } = req.body;
 
   try {
+    // Create a new leave entry
     const newLeave = new Leave({
       teacherId,
       startDate,
       endDate,
+      leaveType,
       reason,
     });
 
+    // Save the new leave entry
     await newLeave.save();
+
+    // Find the teacher and update the leaves array
+    const teacher = await Teacher.findById(teacherId);
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    // Push the new leave ID into the teacher's leaves array
+    teacher.leaves.push(newLeave._id);
+
+    // Save the updated teacher document
+    await teacher.save();
 
     res.status(201).json({
       message: "Leave applied successfully for teacher",
@@ -594,8 +723,49 @@ const applyForLeave = asyncHandler(async (req, res) => {
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
-
 });
+
+const getTeacherLeaves = asyncHandler(async (req, res) => {
+  const { teacherId } = req.params;
+
+  try {
+    // Find the teacher by teacherId
+    const teacher = await Teacher.findById(teacherId);
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    // Fetch all leave details using leaveId references in teacher's leaves array
+    const leaveIds = teacher.leaves.map(leave => leave._id);
+    const leaves = await Leave.find({ _id: { $in: leaveIds } });
+
+    // If no leaves found for the teacher
+    if (!leaves.length) {
+      return res.status(404).json({ message: "No leaves found for this teacher" });
+    }
+
+    // Format the leave data
+    const leaveData = leaves.map((leave) => ({
+      leaveId: leave._id,
+      startDate: leave.startDate,
+      endDate: leave.endDate,
+      reason: leave.reason,
+      leaveType: leave.leaveType, // Assuming leaveType exists in the Leave model
+      status: leave.status
+    }));
+
+    // Send the leave data as response
+    res.status(200).json({
+      message: "Leaves fetched successfully",
+      myLeaves: leaveData,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+
 
 
 // Get all leaves controller
@@ -820,6 +990,84 @@ const getTeacherMeetings = async (req, res) => {
   }
 };
 
+const postAssignment = async (req, res) => {
+  try {
+    const {
+      assignmentTitle,
+      subject,
+      availableFor,
+      class: className,
+      section,
+      dueDate,
+      description,
+    } = req.body;
+
+    // Assignment create karna
+    const newAssignment = new Assignment({
+      assignmentTitle,
+      subject,
+      availableFor,
+      class: className,
+      section,
+      dueDate,
+      description,
+      documentFile: req.file ? req.file.path : undefined,
+    });
+    await newAssignment.save();
+
+    // Jis class aur section ka assignment hai, unke students ke assignment[] array me add karna
+    await Student.updateMany(
+      { class: className, section: section },
+      { $push: { assignments: newAssignment._id } }
+    );
+
+    res.status(201).json({ message: 'Assignment created successfully.', data: newAssignment });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating assignment.', error: error.message });
+  }
+};
+
+
+ const createMeeting = async (req, res) => {
+  try {
+      const { meetingLink, class: className, section, meetingTime, subject } = req.body;
+
+      const newMeeting = new Meeting({ meetingLink, class: className, section, meetingTime, subject });
+      await newMeeting.save();
+
+      // Find all students in the specified class and section
+      await Student.updateMany(
+          { class: className, section },
+          { $push: { meetings: newMeeting._id } }
+      );
+
+      res.status(201).json({ message: "Meeting created successfully!", meeting: newMeeting });
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+};
+
+ const getMeetings = async (req, res) => {
+  try {
+      const meetings = await Meeting.find();
+      res.status(200).json(meetings);
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+};
+
+ const getMeetingById = async (req, res) => {
+  try {
+      const meeting = await Meeting.findById(req.params.id);
+      if (!meeting) return res.status(404).json({ error: "Meeting not found!" });
+
+      res.status(200).json(meeting);
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+};
+
+
 
 export { getTeachers,
      getTeacherById, 
@@ -840,7 +1088,7 @@ export { getTeachers,
       updateStudentAttendance,
       createHomework,
       getHomeworks,
-      updateHomeworkStatus,
+      updateHomeworkStatuss,
       getAllMarks,
       getClassRoutine,
       applyForLeave,
@@ -851,6 +1099,13 @@ export { getTeachers,
       getAllTeachers,
       teacherLogin,
       getTeacherSubject,
-      getTeacherMeetings
+      getTeacherMeetings,
+      postAssignment,
+      getHomeworkForClassSection,
+      updateHomeworkStatus,
+      getTeacherLeaves,
+      createMeeting,
+      getMeetings,
+      getMeetingById
 
      };

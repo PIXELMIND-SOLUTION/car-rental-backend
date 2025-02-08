@@ -193,30 +193,30 @@ const getClassRoutine = async (req, res) => {
   };
 
 
-// Controller to get homework for a specific student
-const getHomeworkByStudent = async (req, res) => {
+  const getHomeworkByStudent = async (req, res) => {
     try {
-      const { studentId } = req.params; // Get studentId from URL parameters
-  
-      // Fetch student details to get class and section
-      const student = await Student.findById(studentId);
-  
-      if (!student) {
-        return res.status(404).json({ message: 'Student not found' });
-      }
-  
-      // Fetch homework based on class and section
-      const homework = await Homework.find({
-        class: student.class,
-        section: student.section,
-      });
-  
-      res.status(200).json(homework); // Send homework data as JSON response
+        const { studentId } = req.params; // Get studentId from URL parameters
+
+        // Fetch student details along with populated homework details
+        const student = await Student.findById(studentId).populate({
+            path: 'homework.homeworkId',
+            select: 'homeworkDate submissionDate description homeworkTitle homeworkBy status'
+        });
+
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // Extract expanded homework details
+        const homeworkDetails = student.homework.map(hw => hw.homeworkId);
+
+        res.status(200).json({ message: "Attendance retrieved successfully", homework: homeworkDetails }); // Send homework data as JSON response
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error fetching homework' });
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching homework' });
     }
-  };
+};
+
 
 // Controller to get assignments for a specific student based on their class and section
  const getAssignmentsForStudent = async (req, res) => {
@@ -319,7 +319,7 @@ const getHomeworkByStudent = async (req, res) => {
 
 const applyForLeave = asyncHandler(async (req, res) => {
   const { studentId } = req.params;
-  const { startDate, endDate, reason } = req.body;
+  const { startDate, endDate, reason, leaveType } = req.body;
 
   // Step 1: Find the student by ID
   const student = await Student.findById(studentId);
@@ -334,6 +334,7 @@ const applyForLeave = asyncHandler(async (req, res) => {
     endDate,
     reason,
     status: 'Pending',
+    leaveType,
     studentId, // Associate leave with the student
   });
 
@@ -375,6 +376,45 @@ const getLeavesByStudent = asyncHandler(async (req, res) => {
   res.status(200).json({
       message: "Leaves retrieved successfully",
       leaves,
+  });
+});
+
+
+const updateLeaveStudentStatus = asyncHandler(async (req, res) => {
+  const { studentId, leaveId } = req.params;
+  const { status } = req.body;  // Only expecting 'status' in the request body
+
+  // Step 1: Find the student by ID
+  const student = await Student.findById(studentId);
+
+  if (!student) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  // Step 2: Find the leave by leaveId
+  const leave = student.leaves.id(leaveId);
+
+  if (!leave) {
+    return res.status(404).json({ message: "Leave not found" });
+  }
+
+  // Step 3: Update the leave status
+  if (status) {
+    leave.status = status;
+  }
+
+  // Save the updated student document
+  await student.save();
+
+  // Step 4: Respond with the updated leave data
+  res.status(200).json({
+    message: "Leave status updated successfully",
+    leave: {
+      leaveId: leave._id,  // Include leaveId
+      studentId: student._id, // Include studentId
+      status: leave.status,
+      leave
+    },
   });
 });
 
@@ -788,6 +828,65 @@ const getStudentComplaints = async (req, res) => {
 };
 
 
+// Student submits homework
+const submitHomework = async (req, res) => {
+  try {
+    const { homeworkId, studentId } = req.params; // Homework ID aur Student ID params se lenge
+    const { status } = req.body;
+    const submissionDate = new Date(); // Current timestamp
+
+    // Find Homework
+    const homework = await Homework.findById(homeworkId);
+    if (!homework) {
+      return res.status(404).json({ message: "Homework not found" });
+    }
+
+    // Check if student already submitted
+    const existingSubmission = homework.submissions.find(
+      (submission) => submission.studentId.toString() === studentId
+    );
+
+    if (existingSubmission) {
+      // Agar already submit kiya hai toh sirf status aur date update karna hai
+      existingSubmission.status = status || "Submitted";
+      existingSubmission.submissionDate = submissionDate;
+    } else {
+      // Naya submission add karna hai
+      homework.submissions.push({ studentId, status: status || "Submitted", submissionDate });
+    }
+
+    await homework.save();
+
+    // Student model me bhi update karein
+    await Student.updateOne(
+      { _id: studentId },
+      { $push: { submissions: { homeworkId, status: status || "Submitted", submissionDate } } }
+    );
+
+    res.status(200).json({ message: "Homework submitted successfully!", homework });
+  } catch (error) {
+    console.error("Error submitting homework:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+ const getStudentMeetings = async (req, res) => {
+  try {
+      const { studentId } = req.params;
+
+      // Find the student by ID and populate meeting details
+      const student = await Student.findById(studentId).populate("meetings");
+
+      if (!student) {
+          return res.status(404).json({ error: "Student not found!" });
+      }
+
+      res.status(200).json({ meetings: student.meetings });
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+};
+
 export  {
     getStudents,
     getStudentById,
@@ -814,5 +913,8 @@ export  {
     getStudentDetails,
     getFeeDetailsByUserId,
     getFeeSummaryByUserId,
-    getStudentComplaints
+    getStudentComplaints,
+    submitHomework,
+    updateLeaveStudentStatus,
+    getStudentMeetings
 };
