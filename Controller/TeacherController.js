@@ -1068,6 +1068,25 @@ const postAssignment = async (req, res) => {
 };
 
 
+ const getTeacherMeetingsWithAdmin = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+
+    // Teacher ko ID se find karo aur meetings expand karo
+    const teacher = await Teacher.findById(teacherId).populate("mymeeting");
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    return res.status(200).json({ meetings: teacher.mymeeting });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 export { getTeachers,
      getTeacherById, 
@@ -1106,6 +1125,7 @@ export { getTeachers,
       getTeacherLeaves,
       createMeeting,
       getMeetings,
-      getMeetingById
+      getMeetingById,
+      getTeacherMeetingsWithAdmin
 
      };

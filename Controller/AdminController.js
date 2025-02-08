@@ -3541,8 +3541,110 @@ const getAllTeachersWithLeaves = asyncHandler(async (req, res) => {
 });
 
 
+ const scheduleMeetingWithTeacher = async (req, res) => {
+  try {
+    const { teacherName, date, time, link } = req.body;
 
+    if (!date || !time || !link) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
 
+    let meetingDetails = { date, time, link };
+
+    // 1️⃣ Single Teacher ke sath meeting (agar `teacherName` diya ho)
+    if (teacherName) {
+      const teacher = await Teacher.findOne({ name: teacherName });
+
+      if (!teacher) {
+        return res.status(404).json({ message: "Teacher not found" });
+      }
+
+      const meeting = new Meeting(meetingDetails);
+      await meeting.save();
+
+      // Teacher ke `mymeeting[]` array me push karna
+      teacher.mymeeting.push(meeting._id);
+      await teacher.save();
+
+      return res.status(201).json({ message: `Meeting scheduled with ${teacherName}`, meeting });
+    }
+
+    // 2️⃣ Sabhi Teachers ke sath meeting
+    const teachers = await Teacher.find();
+    
+    if (!teachers.length) {
+      return res.status(404).json({ message: "No teachers found" });
+    }
+
+    const meeting = new Meeting(meetingDetails);
+    await meeting.save();
+
+    // Sabhi teachers ke `mymeeting[]` array me push karna
+    await Promise.all(
+      teachers.map(async (teacher) => {
+        teacher.mymeeting.push(meeting._id);
+        await teacher.save();
+      })
+    );
+
+    return res.status(201).json({ message: "Meeting scheduled with all teachers", meeting });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+ const getAllTeachersMeetings = async (req, res) => {
+  try {
+    // Sabhi teachers ki `name` aur `mymeeting[]` ko fetch karenge aur meetings ko populate karenge
+    const teachers = await Teacher.find()
+      .select("name mymeeting")  // `name` aur `mymeeting[]` ko select karenge
+      .populate("mymeeting");    // Meetings ki details expand karenge
+
+    if (!teachers.length) {
+      return res.status(404).json({ message: "No teachers found" });
+    }
+
+    // Sabhi teachers ki `name` aur unke `mymeeting[]` ko return karenge
+    const meetings = teachers.map(teacher => ({
+      name: teacher.name,
+      mymeeting: teacher.mymeeting
+    }));
+
+    return res.status(200).json({ meetings });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+ const getAllStudentsMeetings = async (req, res) => {
+  try {
+    // Sabhi students ki meetings fetch karo aur meetings ko populate karo
+    const students = await Student.find()
+      .populate("meetings");  // Meetings ki details expand karenge
+
+    if (!students.length) {
+      return res.status(404).json({ message: "No students found" });
+    }
+
+    // Sabhi students ke meetings ko return karenge
+    const studentsMeetings = students.map(student => ({
+      name: student.name,
+      class: student.class,
+      section: student.section,
+      meetings: student.meetings
+    }));
+
+    return res.status(200).json({ studentsMeetings });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 export {
   adminRegistration,
@@ -3660,5 +3762,8 @@ export {
   updateStudentLeaveStatus,
   getAllTeachersWithLeaves,
   updateTeacherLeaveStatus,
-  getStudentDetails
+  getStudentDetails,
+  scheduleMeetingWithTeacher,
+  getAllTeachersMeetings,
+  getAllStudentsMeetings
 }

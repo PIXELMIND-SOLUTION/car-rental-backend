@@ -24,6 +24,7 @@ import {
     getTeacherLeaves,
     createMeeting,
     getMeetings,
+    getTeacherMeetingsWithAdmin, 
 } from '../Controller/TeacherController.js';
 
 
@@ -49,6 +50,8 @@ router.get('/meetings/:teacherId', getTeacherMeetings);
 router.post('/post-assignment', postAssignment);
 router.post("/meetings", createMeeting);
 router.get("/meetings", getMeetings);
+router.get("/admin-meetings/:teacherId", getTeacherMeetingsWithAdmin);
+
 
 
 

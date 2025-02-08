@@ -100,7 +100,10 @@ import {
   updateStudentLeaveStatus,
   getAllTeachersWithLeaves,
   updateTeacherLeaveStatus,
-  getStudentDetails
+  getStudentDetails,
+  scheduleMeetingWithTeacher,
+  getAllTeachersMeetings,
+  getAllStudentsMeetings
 } from '../Controller/AdminController.js'
 
 // Configure multer for file uploads
@@ -215,6 +218,9 @@ router.get('/student-leaves', getAllStudentLeaves);
 router.get('/teacher-leaves', getAllTeachersWithLeaves);
 router.put('/student-leaveupdate/:studentId/:leaveId', updateStudentLeaveStatus);
 router.put('/teacher-leaveupdate/:teacherId/:leaveId', updateTeacherLeaveStatus);
+router.post('/teacher-meeting', scheduleMeetingWithTeacher);
+router.get('/teacher-meeting', getAllTeachersMeetings);
+router.get('/teacher-student', getAllStudentsMeetings);
 router.post('/settings', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'schoolImage', maxCount: 1 }]), updateSchoolDetails);
 
 

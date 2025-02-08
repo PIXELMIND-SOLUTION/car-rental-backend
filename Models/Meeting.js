@@ -4,13 +4,22 @@ const { Schema, model } = mongoose;
 
 const meetingSchema = new Schema(
   {
-    meetingLink: { type: String, required: true },
-    class: { type: String, required: true },
-    section: { type: String, required: true },
-    meetingTime: { type: Date, required: true }, // Stores both date and time
-    subject: { type: String, required: true },
+    meetingLink: { type: String, },
+    class: { type: String, },
+    section: { type: String, },
+    meetingTime: { type: Date, }, // Stores both date and time
+    subject: { type: String, },
     agenda: { type: String },
     location: { type: String },
+    date: {
+      type: String,
+    },
+    time: {
+      type: String,
+    },
+    link: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
