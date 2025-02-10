@@ -9,23 +9,27 @@ const router = express.Router();
 router.post("/update-location", async (req, res) => {
     const { busNumber, lat, lng, route } = req.body;
 
-    if (!busNumber) {
-        return res.status(400).json({ error: "Bus number is required" });
+    if (!busNumber || lat === undefined || lng === undefined) {
+        return res.status(400).json({ error: "Bus number, latitude, and longitude are required" });
     }
 
-    // Ensure the busNumber is properly passed
-    const bus = await Bus.findOneAndUpdate(
-        { busNumber }, // Make sure busNumber is part of the query filter
-        { $set: { currentLocation: { lat, lng }, route } }, 
-        { new: true, upsert: true }
-    );
+    try {
+        const bus = await Bus.findOneAndUpdate(
+            { busNumber },
+            { 
+                $set: { currentLocation: { lat, lng }, route },
+                $push: { locationHistory: { lat, lng, timestamp: new Date() } }
+            },
+            { new: true, upsert: true }
+        );
 
-    if (!bus) {
-        return res.status(404).json({ error: "Bus not found" });
+        res.json({ message: "Bus location updated!", bus });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Server error" });
     }
-
-    res.json({ message: "Bus location updated!", bus });
 });
+
 
 
 // 🟢 Get Bus Current Location
@@ -96,6 +100,25 @@ router.get("/check-bus-notifications/:busNumber", async (req, res) => {
 
     res.json({ notifications });
 });
+
+
+router.get("/get-all-buses", async (req, res) => {
+    try {
+        // Retrieve all buses
+        const buses = await Bus.find();
+
+        if (buses.length === 0) {
+            return res.status(404).json({ error: "No buses found" });
+        }
+
+        // Send the list of buses in the response
+        res.json({ message: "All bus data retrieved successfully", buses });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
 
 
 

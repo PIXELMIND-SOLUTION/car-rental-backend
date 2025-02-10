@@ -3646,6 +3646,63 @@ const getAllTeachersWithLeaves = asyncHandler(async (req, res) => {
   }
 };
 
+
+const getDashboardCounts = async (req, res) => {
+  try {
+    // Fetch counts for total students, parents, teachers, subjects, classes, holidays, meetings
+    const totalStudents = await Student.countDocuments();
+    const totalParents = await Parent.countDocuments();
+    const totalTeachers = await Teacher.countDocuments();
+    const totalStaffs = await Staff.countDocuments();
+    const totalSubjects = await Subject.countDocuments();
+    const totalClasses = await Class.countDocuments();
+    const totalHolidays = await Holiday.countDocuments();
+    const totalMeetings = await Meeting.countDocuments();
+    const totalRoutines = await Routine.countDocuments();
+
+
+    // Fetch fee details from the database
+    const fees = await Fee.find({}); // You can add filters like studentId or class if needed
+
+    // Initialize totals for paid, pending, and total fee amounts
+    let totalPaid = 0;
+    let totalPending = 0;
+    let totalAmount = 0;
+
+    // Iterate over the fees to calculate total paid, pending, and total fee amounts
+    fees.forEach(fee => {
+      totalPaid += fee.paidAmount;
+      totalPending += fee.pendingPayment;
+      totalAmount += fee.paidAmount + fee.pendingPayment; // Sum of paid and pending to get total amount
+    });
+
+    // Format numbers with commas before returning them
+    const formatNumber = (number) => {
+      return number.toLocaleString();
+    };
+
+    // Return all the totals and fee details in a single response
+    res.status(200).json({
+      totalStudents,
+      totalParents,
+      totalTeachers,
+      totalStaffs,
+      totalSubjects,
+      totalClasses,
+      totalHolidays,
+      totalMeetings,
+      totalRoutines,
+      totalPaid: formatNumber(totalPaid),
+      totalPending: formatNumber(totalPending),
+      totalAmount: formatNumber(totalAmount) // Total amount including both paid and pending
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error retrieving dashboard data', error: error.message });
+  }
+};
+
+
 export {
   adminRegistration,
   adminLogin,
@@ -3765,5 +3822,6 @@ export {
   getStudentDetails,
   scheduleMeetingWithTeacher,
   getAllTeachersMeetings,
-  getAllStudentsMeetings
+  getAllStudentsMeetings,
+  getDashboardCounts
 }
