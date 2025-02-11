@@ -17,266 +17,266 @@ import generateToken from '../config/jwtToken.js';
 import multer from 'multer'
 
 const getTeachers = asyncHandler(async (req, res) => {
-    const teachers = await Teacher.find();
-    res.json(teachers);
+  const teachers = await Teacher.find();
+  res.json(teachers);
 });
 
 const getTeacherById = asyncHandler(async (req, res) => {
-    const teacher = await Teacher.findById(req.params.id);
-    if (!teacher) {
-        res.status(404);
-        throw new Error('Teacher not found');
-    }
-    res.json(teacher);
+  const teacher = await Teacher.findById(req.params.id);
+  if (!teacher) {
+    res.status(404);
+    throw new Error('Teacher not found');
+  }
+  res.json(teacher);
 });
 
 
 const updateTeacher = asyncHandler(async (req, res) => {
-    const teacher = await Teacher.findById(req.params.id);
-    if (!teacher) {
-        res.status(404);
-        throw new Error('Teacher not found');
-    }
-    Object.assign(teacher, req.body);
-    const updatedTeacher = await teacher.save();
-    res.json(updatedTeacher);
+  const teacher = await Teacher.findById(req.params.id);
+  if (!teacher) {
+    res.status(404);
+    throw new Error('Teacher not found');
+  }
+  Object.assign(teacher, req.body);
+  const updatedTeacher = await teacher.save();
+  res.json(updatedTeacher);
 });
 
 const deleteTeacher = asyncHandler(async (req, res) => {
-    const teacher = await Teacher.findById(req.params.id);
-    if (!teacher) {
-        res.status(404);
-        throw new Error('Teacher not found');
-    }
-    await teacher.remove();
-    res.json({ message: 'Teacher removed' });
+  const teacher = await Teacher.findById(req.params.id);
+  if (!teacher) {
+    res.status(404);
+    throw new Error('Teacher not found');
+  }
+  await teacher.remove();
+  res.json({ message: 'Teacher removed' });
 });
 
 // File upload configuration
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // Upload directory
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    },
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // Upload directory
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
 });
 const upload = multer({ storage });
 
 // POST Controller to create syllabus
 const postSyllabus = async (req, res) => {
-    try {
-        const {
-            syllabusTitle,
-            syllabusType,
-            availableFor,
-            class: className,
-            section,
-            date,
-            description,
-        } = req.body;
+  try {
+    const {
+      syllabusTitle,
+      syllabusType,
+      availableFor,
+      class: className,
+      section,
+      date,
+      description,
+    } = req.body;
 
-        const newSyllabus = new Syllabus({
-            syllabusTitle,
-            syllabusType,
-            availableFor,
-            class: className,
-            section,
-            date,
-            description,
-            documentFile: req.file ? req.file.path : undefined,
-        });
-        await newSyllabus.save();
+    const newSyllabus = new Syllabus({
+      syllabusTitle,
+      syllabusType,
+      availableFor,
+      class: className,
+      section,
+      date,
+      description,
+      documentFile: req.file ? req.file.path : undefined,
+    });
+    await newSyllabus.save();
 
-        res.status(201).json({ message: 'Syllabus created successfully.', data: newSyllabus });
-    } catch (error) {
-        res.status(500).json({ message: 'Error creating syllabus.', error: error.message });
-    }
+    res.status(201).json({ message: 'Syllabus created successfully.', data: newSyllabus });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating syllabus.', error: error.message });
+  }
 };
 
 // GET Controller to retrieve syllabus
 const getSyllabus = async (req, res) => {
-    try {
-        const syllabus = await Syllabus.find();
+  try {
+    const syllabus = await Syllabus.find();
 
-        res.status(200).json({ message: 'Syllabus retrieved successfully.', data: syllabus });
-    } catch (error) {
-        res.status(500).json({ message: 'Error retrieving syllabus.', error: error.message });
-    }
+    res.status(200).json({ message: 'Syllabus retrieved successfully.', data: syllabus });
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving syllabus.', error: error.message });
+  }
 };
 
 // Controller function to add a new topic (POST)
- const addTopic = async (req, res) => {
-    const { class: lessonClass, section, subject, lesson, topicName } = req.body;
-  
-    // Check if all required fields are provided
-    if (!lessonClass || !section || !subject || !lesson || !topicName) {
-      return res.status(400).json({ message: 'All fields (class, section, subject, lesson, topicName) are required' });
-    }
-  
-    try {
-      // Create a new topic
-      const newTopic = new Topic({
-        class: lessonClass,
-        section: section,
-        subject: subject,
-        lesson: lesson,
-        topicName: topicName
-      });
-  
-      // Save the topic to the database
-      await newTopic.save();
-  
-      // Return success response
-      res.status(201).json({ message: 'Topic added successfully', topic: newTopic });
-    } catch (error) {
-      // Handle errors during save
-      res.status(500).json({ message: 'Error adding topic', error: error.message });
-    }
-  };
-  
-  // Controller function to get all topics (GET)
-   const getTopics = async (req, res) => {
-    try {
-      // Fetch all topics from the database
-      const topics = await Topic.find().populate('lesson');  // Populate lesson details if needed
-  
-      // Return the topics
-      res.status(200).json({ message: 'Topics retrieved successfully', topics });
-    } catch (error) {
-      // Handle errors during fetch
-      res.status(500).json({ message: 'Error fetching topics', error: error.message });
-    }
-  };
+const addTopic = async (req, res) => {
+  const { class: lessonClass, section, subject, lesson, topicName } = req.body;
+
+  // Check if all required fields are provided
+  if (!lessonClass || !section || !subject || !lesson || !topicName) {
+    return res.status(400).json({ message: 'All fields (class, section, subject, lesson, topicName) are required' });
+  }
+
+  try {
+    // Create a new topic
+    const newTopic = new Topic({
+      class: lessonClass,
+      section: section,
+      subject: subject,
+      lesson: lesson,
+      topicName: topicName
+    });
+
+    // Save the topic to the database
+    await newTopic.save();
+
+    // Return success response
+    res.status(201).json({ message: 'Topic added successfully', topic: newTopic });
+  } catch (error) {
+    // Handle errors during save
+    res.status(500).json({ message: 'Error adding topic', error: error.message });
+  }
+};
+
+// Controller function to get all topics (GET)
+const getTopics = async (req, res) => {
+  try {
+    // Fetch all topics from the database
+    const topics = await Topic.find().populate('lesson');  // Populate lesson details if needed
+
+    // Return the topics
+    res.status(200).json({ message: 'Topics retrieved successfully', topics });
+  } catch (error) {
+    // Handle errors during fetch
+    res.status(500).json({ message: 'Error fetching topics', error: error.message });
+  }
+};
 
 // Controller function to add attendance record
- const addAttendance = async (req, res) => {
-    const { admissionNumber, firstName, lastName, dateOfBirth, gender, attendanceStatus } = req.body;
-  
-    // Check if all required fields are provided
-    if (!admissionNumber || !firstName || !lastName || !dateOfBirth || !gender || !attendanceStatus) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-  
-    try {
-      // Create a new attendance record
-      const newAttendance = new Attendance({
-        admissionNumber,
-        firstName,
-        lastName,
-        dateOfBirth,
-        gender,
-        attendanceStatus
-      });
-  
-      // Save the attendance record to the database
-      await newAttendance.save();
-  
-      // Return success response
-      res.status(201).json({ message: 'Attendance record added successfully', attendance: newAttendance });
-    } catch (error) {
-      // Handle errors during save
-      res.status(500).json({ message: 'Error adding attendance record', error: error.message });
-    }
-  };
+const addAttendance = async (req, res) => {
+  const { admissionNumber, firstName, lastName, dateOfBirth, gender, attendanceStatus } = req.body;
+
+  // Check if all required fields are provided
+  if (!admissionNumber || !firstName || !lastName || !dateOfBirth || !gender || !attendanceStatus) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    // Create a new attendance record
+    const newAttendance = new Attendance({
+      admissionNumber,
+      firstName,
+      lastName,
+      dateOfBirth,
+      gender,
+      attendanceStatus
+    });
+
+    // Save the attendance record to the database
+    await newAttendance.save();
+
+    // Return success response
+    res.status(201).json({ message: 'Attendance record added successfully', attendance: newAttendance });
+  } catch (error) {
+    // Handle errors during save
+    res.status(500).json({ message: 'Error adding attendance record', error: error.message });
+  }
+};
 
 // Controller function to add homework
- const addHomework = async (req, res) => {
-    const { class: homeworkClass, subject, section, homeworkDate, submissionDate, marks, attachment, description } = req.body;
-  
-    // Check if all required fields are provided
-    if (!homeworkClass || !subject || !section || !homeworkDate || !submissionDate || !marks || !description) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-  
-    try {
-      // Create a new homework entry
-      const newHomework = new Homework({
-        class: homeworkClass,
-        subject: subject,
-        section: section,
-        homeworkDate: homeworkDate,
-        submissionDate: submissionDate,
-        marks: marks,
-        attachment: attachment,  // File URL or path
-        description: description
-      });
-  
-      // Save the homework to the database
-      await newHomework.save();
-  
-      // Return success response
-      res.status(201).json({ message: 'Homework added successfully', homework: newHomework });
-    } catch (error) {
-      // Handle errors during save
-      res.status(500).json({ message: 'Error adding homework', error: error.message });
-    }
-  };
+const addHomework = async (req, res) => {
+  const { class: homeworkClass, subject, section, homeworkDate, submissionDate, marks, attachment, description } = req.body;
+
+  // Check if all required fields are provided
+  if (!homeworkClass || !subject || !section || !homeworkDate || !submissionDate || !marks || !description) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    // Create a new homework entry
+    const newHomework = new Homework({
+      class: homeworkClass,
+      subject: subject,
+      section: section,
+      homeworkDate: homeworkDate,
+      submissionDate: submissionDate,
+      marks: marks,
+      attachment: attachment,  // File URL or path
+      description: description
+    });
+
+    // Save the homework to the database
+    await newHomework.save();
+
+    // Return success response
+    res.status(201).json({ message: 'Homework added successfully', homework: newHomework });
+  } catch (error) {
+    // Handle errors during save
+    res.status(500).json({ message: 'Error adding homework', error: error.message });
+  }
+};
 
 // Controller function to get all homework
- const getHomework = async (req, res) => {
-    try {
-      // Fetch all homework records from the database
-      const homeworkRecords = await Homework.find();
-  
-      // Return the fetched homework data
-      res.status(200).json({
-        message: 'Homework records fetched successfully',
-        homework: homeworkRecords
-      });
-    } catch (error) {
-      // Handle errors during fetch
-      res.status(500).json({ message: 'Error fetching homework records', error: error.message });
-    }
-  };
+const getHomework = async (req, res) => {
+  try {
+    // Fetch all homework records from the database
+    const homeworkRecords = await Homework.find();
 
-  const markAttendanceForStudent = asyncHandler(async (req, res) => {
-    const { studentId } = req.params; // Extract studentId from params
-    const { date, subject, attendanceStatus } = req.body; // Extract fields from body
-
-    // Step 1: Find the student by ID
-    const student = await Student.findById(studentId);
-
-    if (!student) {
-        return res.status(404).json({ message: "Student not found" });
-    }
-
-    // Step 2: Check if attendance for the specific date and subject already exists
-    const existingAttendance = student.attendance.find(
-        (att) =>
-            att.date.toISOString().split("T")[0] === new Date(date).toISOString().split("T")[0] &&
-            att.subject === subject // Match by subject
-    );
-
-    if (existingAttendance) {
-        // Update existing attendance for this subject and date
-        existingAttendance.attendanceStatus = attendanceStatus;
-    } else {
-        // Add new attendance record with subject
-        student.attendance.push({
-            date,
-            subject, // Add subject to the attendance
-            attendanceStatus,
-        });
-
-        // Step 3: Create and save a new Attendance record
-        const newAttendance = new Attendance({
-            studentId, // Reference to the student
-            date,
-            subject,
-            attendanceStatus,
-        });
-
-        await newAttendance.save();
-    }
-
-    // Step 4: Save the updated student record
-    await student.save();
-
+    // Return the fetched homework data
     res.status(200).json({
-        message: "Attendance updated successfully",
-        student,
+      message: 'Homework records fetched successfully',
+      homework: homeworkRecords
     });
+  } catch (error) {
+    // Handle errors during fetch
+    res.status(500).json({ message: 'Error fetching homework records', error: error.message });
+  }
+};
+
+const markAttendanceForStudent = asyncHandler(async (req, res) => {
+  const { studentId } = req.params; // Extract studentId from params
+  const { date, subject, attendanceStatus } = req.body; // Extract fields from body
+
+  // Step 1: Find the student by ID
+  const student = await Student.findById(studentId);
+
+  if (!student) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  // Step 2: Check if attendance for the specific date and subject already exists
+  const existingAttendance = student.attendance.find(
+    (att) =>
+      att.date.toISOString().split("T")[0] === new Date(date).toISOString().split("T")[0] &&
+      att.subject === subject // Match by subject
+  );
+
+  if (existingAttendance) {
+    // Update existing attendance for this subject and date
+    existingAttendance.attendanceStatus = attendanceStatus;
+  } else {
+    // Add new attendance record with subject
+    student.attendance.push({
+      date,
+      subject, // Add subject to the attendance
+      attendanceStatus,
+    });
+
+    // Step 3: Create and save a new Attendance record
+    const newAttendance = new Attendance({
+      studentId, // Reference to the student
+      date,
+      subject,
+      attendanceStatus,
+    });
+
+    await newAttendance.save();
+  }
+
+  // Step 4: Save the updated student record
+  await student.save();
+
+  res.status(200).json({
+    message: "Attendance updated successfully",
+    student,
+  });
 });
 
 
@@ -317,12 +317,12 @@ const addExamSchedule = asyncHandler(async (req, res) => {
 
   // Step 1: Create a new exam schedule object for the Exam model
   const newExamSchedule = new Exam({
-      class: className,
-      section,
-      subject,
-      examDate,
-      examTime,
-      examType
+    class: className,
+    section,
+    subject,
+    examDate,
+    examTime,
+    examType
   });
 
   // Step 2: Save the exam schedule to the database
@@ -333,106 +333,106 @@ const addExamSchedule = asyncHandler(async (req, res) => {
 
   // Step 4: Push the exam schedule to each student's examSchedule array
   for (let student of students) {
-      student.examSchedule.push({
-          subject,
-          examDate,
-          examTime,
-          examType
-      });
+    student.examSchedule.push({
+      subject,
+      examDate,
+      examTime,
+      examType
+    });
 
-      // Save the updated student document
-      await student.save();
+    // Save the updated student document
+    await student.save();
   }
 
   // Step 5: Respond with the newly created exam schedule
   res.status(201).json({
-      message: "Exam schedule added successfully, and all students' schedules updated",
-      exam: createdExam
+    message: "Exam schedule added successfully, and all students' schedules updated",
+    exam: createdExam
   });
 });
 
 
 const getStudentsAttendance = async (req, res) => {
   try {
-      const { class: studentClass, section, date, subject } = req.query;
+    const { class: studentClass, section, date, subject } = req.query;
 
-      const students = await Student.find({ class: studentClass, section });
-      const attendanceData = students.map((student) => {
-          const todayRecord = student.attendance.find(
-              (record) => record.date === date && record.subject === subject
-          ) || { date, subject, attendanceStatus: 'Absent' };  // Use 'attendanceStatus' instead of 'status'
+    const students = await Student.find({ class: studentClass, section });
+    const attendanceData = students.map((student) => {
+      const todayRecord = student.attendance.find(
+        (record) => record.date === date && record.subject === subject
+      ) || { date, subject, attendanceStatus: 'Absent' };  // Use 'attendanceStatus' instead of 'status'
 
-          return {
-              id: student._id,
-              name: student.firstName,
-              class: student.class,
-              section: student.section,
-              attendance: todayRecord,
-          };
-      });
+      return {
+        id: student._id,
+        name: student.firstName,
+        class: student.class,
+        section: student.section,
+        attendance: todayRecord,
+      };
+    });
 
-      res.status(200).json(attendanceData);
+    res.status(200).json(attendanceData);
   } catch (error) {
-      res.status(500).json({ message: 'Error fetching attendance data', error });
+    res.status(500).json({ message: 'Error fetching attendance data', error });
   }
 };
 
 // Update attendance for a student
- const updateAttendance = async (req, res) => {
+const updateAttendance = async (req, res) => {
   try {
-      const { studentId, date, attendanceStatus } = req.body;
+    const { studentId, date, attendanceStatus } = req.body;
 
-      const student = await Student.findById(studentId);
-      if (!student) {
-          return res.status(404).json({ message: 'Student not found' });
-      }
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
 
-      const formattedDate = new Date(date).toISOString().split('T')[0];
+    const formattedDate = new Date(date).toISOString().split('T')[0];
 
-      const existingRecord = student.attendance.find(
-          (att) => att.date.toISOString().split('T')[0] === formattedDate
-      );
+    const existingRecord = student.attendance.find(
+      (att) => att.date.toISOString().split('T')[0] === formattedDate
+    );
 
-      if (existingRecord) {
-          existingRecord.attendanceStatus = attendanceStatus;
-      } else {
-          student.attendance.push({ date: new Date(date), attendanceStatus });
-      }
+    if (existingRecord) {
+      existingRecord.attendanceStatus = attendanceStatus;
+    } else {
+      student.attendance.push({ date: new Date(date), attendanceStatus });
+    }
 
-      await student.save();
-      res.status(200).json({ message: 'Attendance updated successfully' });
+    await student.save();
+    res.status(200).json({ message: 'Attendance updated successfully' });
   } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Error updating attendance' });
+    console.error(err);
+    res.status(500).json({ message: 'Error updating attendance' });
   }
 };
 
 const updateStudentAttendance = async (req, res) => {
   try {
-      const { studentId, attendanceId } = req.params; // Getting both studentId and attendanceId from params
-      const { date, subject, attendanceStatus } = req.body;  // Changed 'status' to 'attendanceStatus'
+    const { studentId, attendanceId } = req.params; // Getting both studentId and attendanceId from params
+    const { date, subject, attendanceStatus } = req.body;  // Changed 'status' to 'attendanceStatus'
 
-      const student = await Student.findById(studentId);
-      if (!student) {
-          return res.status(404).json({ message: 'Student not found' });
-      }
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
 
-      // Find the specific attendance record by attendanceId
-      const attendanceRecordIndex = student.attendance.findIndex(
-          (record) => record._id.toString() === attendanceId
-      );
+    // Find the specific attendance record by attendanceId
+    const attendanceRecordIndex = student.attendance.findIndex(
+      (record) => record._id.toString() === attendanceId
+    );
 
-      if (attendanceRecordIndex === -1) {
-          return res.status(404).json({ message: 'Attendance record not found' });
-      }
+    if (attendanceRecordIndex === -1) {
+      return res.status(404).json({ message: 'Attendance record not found' });
+    }
 
-      // Update the attendance record
-      student.attendance[attendanceRecordIndex].attendanceStatus = attendanceStatus;
+    // Update the attendance record
+    student.attendance[attendanceRecordIndex].attendanceStatus = attendanceStatus;
 
-      await student.save();
-      res.status(200).json({ message: 'Attendance updated successfully', student });
+    await student.save();
+    res.status(200).json({ message: 'Attendance updated successfully', student });
   } catch (error) {
-      res.status(500).json({ message: 'Error updating attendance', error });
+    res.status(500).json({ message: 'Error updating attendance', error });
   }
 };
 
@@ -601,27 +601,27 @@ const updateHomeworkStatus = async (req, res) => {
 // Controller to handle GET request for fetching all homework entries
 const getHomeworks = async (req, res) => {
   try {
-      // Fetch all homework entries from the database
-      const homeworks = await Homework.find();
+    // Fetch all homework entries from the database
+    const homeworks = await Homework.find();
 
-      // If no homework entries found, return a message
-      if (homeworks.length === 0) {
-          return res.status(404).json({
-              message: 'No homework found.',
-          });
-      }
-
-      // Send the homeworks as response
-      res.status(200).json({
-          message: 'Homeworks retrieved successfully!',
-          homeworks,
+    // If no homework entries found, return a message
+    if (homeworks.length === 0) {
+      return res.status(404).json({
+        message: 'No homework found.',
       });
+    }
+
+    // Send the homeworks as response
+    res.status(200).json({
+      message: 'Homeworks retrieved successfully!',
+      homeworks,
+    });
   } catch (error) {
-      // Handle any errors that occur during the process
-      res.status(500).json({
-          message: 'Error retrieving homeworks',
-          error: error.message,
-      });
+    // Handle any errors that occur during the process
+    res.status(500).json({
+      message: 'Error retrieving homeworks',
+      error: error.message,
+    });
   }
 };
 
@@ -640,7 +640,7 @@ const updateHomeworkStatuss = async (req, res) => {
 
     // Update the status
     homework.status = status;
-    
+
     // Save the updated homework
     await homework.save();
 
@@ -939,6 +939,26 @@ const teacherLogin = async (req, res) => {
   }
 };
 
+const logoutTeacher = async (req, res) => {
+  try {
+    // Clear the refresh token cookie
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Ensure it's only sent over HTTPS in production
+      sameSite: 'Strict', // For added security
+    });
+
+    res.status(200).json({ message: 'Logged out successfully' });
+  } catch (err) {
+    console.error("Error Logging out Teacher:", err.message);
+    res.status(500).json({
+      message: 'Error logging out teacher',
+      error: err.message,
+    });
+  }
+};
+
+
 // Controller to get teacher's subjects by teacherId
 const getTeacherSubject = async (req, res) => {
   const teacherId = req.params.teacherId;
@@ -1028,47 +1048,47 @@ const postAssignment = async (req, res) => {
 };
 
 
- const createMeeting = async (req, res) => {
+const createMeeting = async (req, res) => {
   try {
-      const { meetingLink, class: className, section, meetingTime, subject } = req.body;
+    const { meetingLink, class: className, section, meetingTime, subject } = req.body;
 
-      const newMeeting = new Meeting({ meetingLink, class: className, section, meetingTime, subject });
-      await newMeeting.save();
+    const newMeeting = new Meeting({ meetingLink, class: className, section, meetingTime, subject });
+    await newMeeting.save();
 
-      // Find all students in the specified class and section
-      await Student.updateMany(
-          { class: className, section },
-          { $push: { meetings: newMeeting._id } }
-      );
+    // Find all students in the specified class and section
+    await Student.updateMany(
+      { class: className, section },
+      { $push: { meetings: newMeeting._id } }
+    );
 
-      res.status(201).json({ message: "Meeting created successfully!", meeting: newMeeting });
+    res.status(201).json({ message: "Meeting created successfully!", meeting: newMeeting });
   } catch (error) {
-      res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
- const getMeetings = async (req, res) => {
+const getMeetings = async (req, res) => {
   try {
-      const meetings = await Meeting.find();
-      res.status(200).json(meetings);
+    const meetings = await Meeting.find();
+    res.status(200).json(meetings);
   } catch (error) {
-      res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
- const getMeetingById = async (req, res) => {
+const getMeetingById = async (req, res) => {
   try {
-      const meeting = await Meeting.findById(req.params.id);
-      if (!meeting) return res.status(404).json({ error: "Meeting not found!" });
+    const meeting = await Meeting.findById(req.params.id);
+    if (!meeting) return res.status(404).json({ error: "Meeting not found!" });
 
-      res.status(200).json(meeting);
+    res.status(200).json(meeting);
   } catch (error) {
-      res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
 
- const getTeacherMeetingsWithAdmin = async (req, res) => {
+const getTeacherMeetingsWithAdmin = async (req, res) => {
   try {
     const { teacherId } = req.params;
 
@@ -1088,44 +1108,46 @@ const postAssignment = async (req, res) => {
 };
 
 
-export { getTeachers,
-     getTeacherById, 
-     updateTeacher, 
-     deleteTeacher, 
-     postSyllabus,
-      getSyllabus,
-      addTopic,
-      getTopics,
-      addAttendance,
-      addHomework,
-      getHomework,
-      markAttendanceForStudent,
-      postMarksForStudent,
-      addExamSchedule,
-      updateAttendance,
-      getStudentsAttendance,
-      updateStudentAttendance,
-      createHomework,
-      getHomeworks,
-      updateHomeworkStatuss,
-      getAllMarks,
-      getClassRoutine,
-      applyForLeave,
-      getAllLeaves,
-      getStudentsAdmission,
-      fileComplaint,
-      createTeacher,
-      getAllTeachers,
-      teacherLogin,
-      getTeacherSubject,
-      getTeacherMeetings,
-      postAssignment,
-      getHomeworkForClassSection,
-      updateHomeworkStatus,
-      getTeacherLeaves,
-      createMeeting,
-      getMeetings,
-      getMeetingById,
-      getTeacherMeetingsWithAdmin
+export {
+  getTeachers,
+  getTeacherById,
+  updateTeacher,
+  deleteTeacher,
+  postSyllabus,
+  getSyllabus,
+  addTopic,
+  getTopics,
+  addAttendance,
+  addHomework,
+  getHomework,
+  markAttendanceForStudent,
+  postMarksForStudent,
+  addExamSchedule,
+  updateAttendance,
+  getStudentsAttendance,
+  updateStudentAttendance,
+  createHomework,
+  getHomeworks,
+  updateHomeworkStatuss,
+  getAllMarks,
+  getClassRoutine,
+  applyForLeave,
+  getAllLeaves,
+  getStudentsAdmission,
+  fileComplaint,
+  createTeacher,
+  getAllTeachers,
+  teacherLogin,
+  logoutTeacher,
+  getTeacherSubject,
+  getTeacherMeetings,
+  postAssignment,
+  getHomeworkForClassSection,
+  updateHomeworkStatus,
+  getTeacherLeaves,
+  createMeeting,
+  getMeetings,
+  getMeetingById,
+  getTeacherMeetingsWithAdmin
 
-     };
+};

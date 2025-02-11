@@ -25,6 +25,7 @@ import {
     getAdmitCard,
     getStudentDetails,
     loginStudent,
+    logoutStudent,
     getFeeDetailsByUserId,
     getFeeSummaryByUserId,
     getStudentComplaints,
@@ -50,6 +51,7 @@ router.get('/teachers/:studentId', getStudentSubjectsTeachers);
 router.get('/get-transport/:studentId', getStudentTransport);
 router.get('/get-details/:studentId', getStudentDetails);
 router.post('/login', loginStudent)
+router.post('/logout', logoutStudent)
 router.get('/fees/:userId', getFeeDetailsByUserId);
 router.get('/fees-summary/:userId', getFeeSummaryByUserId);
 router.get('/my-complaint/:userId', getStudentComplaints);

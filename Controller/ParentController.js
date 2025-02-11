@@ -92,6 +92,27 @@ const parentLogin = async (req, res) => {
 };
 
 
+const parentLogout = async (req, res) => {
+  try {
+    // Clear the refresh token cookie
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Ensure the flag is set for production
+      sameSite: 'Strict',
+    });
+
+    // Optionally, you can clear the access token from client-side storage if it's stored there.
+    // This would typically be done on the client side, but if you need to handle it here, you can respond with a status.
+
+    res.status(200).json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error.message);
+    res.status(500).json({ message: 'Error logging out', error: error.message });
+  }
+};
+
+
+
 
 // Get student transport details
 const getStudentTransport = async (req, res) => {
@@ -879,6 +900,7 @@ const getStudentDetails = async (req, res) => {
   
 export {
     parentLogin,
+    parentLogout,
     getStudentTransport,
     getStudentAttendance,
     getStudentLeaves,

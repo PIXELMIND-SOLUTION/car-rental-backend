@@ -1,28 +1,32 @@
 import express from 'express'
 const router = express.Router();
 
-import { parentLogin,
-     getStudentTransport,
-      getStudentAttendance,
-        getStudentLeaves,
-    getStudentMarks,
-    getStudentExamSchedule,
-    getLessonsForParent,
-    getHomeworkForParent,
-    getAssignmentsForParent,
-    getSyllabusForParent,
-    applyForLeaveByParent,
-    getMarksForParent,
-    getNoticesForParent,
-    getSubjectsAndTeachersForParent,
-    getClassRoutineForParent,
-    getStudentSubjects, 
-    applyLeave,
-    getStudentMark,
-    getStudentDetails} from '../Controller/ParentController.js';
+import {
+  parentLogin,
+  getStudentTransport,
+  getStudentAttendance,
+  getStudentLeaves,
+  getStudentMarks,
+  getStudentExamSchedule,
+  getLessonsForParent,
+  getHomeworkForParent,
+  getAssignmentsForParent,
+  getSyllabusForParent,
+  applyForLeaveByParent,
+  getMarksForParent,
+  getNoticesForParent,
+  getSubjectsAndTeachersForParent,
+  getClassRoutineForParent,
+  getStudentSubjects,
+  applyLeave,
+  getStudentMark,
+  getStudentDetails,
+  parentLogout
+} from '../Controller/ParentController.js';
 
 
 router.post('/parent-login', parentLogin)
+router.post('/parent-logout', parentLogout)
 router.get('/my-child-transport/:parentId/:studentId', getStudentTransport)
 router.get('/my-child-attendance/:parentId/:studentId', getStudentAttendance)
 router.get('/my-child-leaves/:parentId/:studentId', getStudentLeaves)

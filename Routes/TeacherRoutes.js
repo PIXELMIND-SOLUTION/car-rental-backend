@@ -17,6 +17,7 @@ import {
     getStudentsAdmission,
     fileComplaint,
     teacherLogin,
+    logoutTeacher,
     getTeacherSubject,
     getTeacherMeetings,
     postAssignment,
@@ -45,6 +46,7 @@ router.get('/my-leaves/:teacherId', getTeacherLeaves);
 router.get('/students', getStudentsAdmission);
 router.post('/add-complaint/:studentId', fileComplaint);
 router.post('/login', teacherLogin);
+router.post('/logout', logoutTeacher);
 router.get('/subjects/:teacherId', getTeacherSubject);
 router.get('/meetings/:teacherId', getTeacherMeetings);
 router.post('/post-assignment', postAssignment);

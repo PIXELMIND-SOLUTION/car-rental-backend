@@ -753,6 +753,24 @@ const loginStudent = async (req, res) => {
   }
 };
 
+
+const logoutStudent = async (req, res) => {
+  try {
+    // Clear the refresh token cookie
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Ensure it works only over HTTPS in production
+      sameSite: 'Strict', // For added security
+    });
+
+    res.status(200).json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error.message);
+    res.status(500).json({ message: 'Error logging out', error: error.message });
+  }
+};
+
+
 // Controller to fetch fee details by userId
 const getFeeDetailsByUserId = async (req, res) => {
   try {
@@ -909,6 +927,7 @@ export  {
     getStudentSubjectsTeachers,
     getStudentTransport,
     loginStudent,
+    logoutStudent,
     getAdmitCard,
     getStudentDetails,
     getFeeDetailsByUserId,
