@@ -34,6 +34,7 @@ import SeatPlan from '../Models/SeatPlan.js';
 import Marks from '../Models/Mark.js';
 import Staff from '../Models/Staff.js';
 import Parent from '../Models/Parent.js'
+import Lecture from '../Models/Lecture.js';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import generateRefreshToken from '../config/refreshtoken.js';
@@ -3702,6 +3703,41 @@ const getDashboardCounts = async (req, res) => {
   }
 };
 
+// ✅ Create Lecture & Add to Students
+const createLecture = async (req, res) => {
+  try {
+      const { title, description, date, duration, link, class: lectureClass, section, subject } = req.body;
+
+      // ✅ Create Lecture in Lecture Model
+      const newLecture = new Lecture({ title, description, date, duration, link, class: lectureClass, section, subject });
+      await newLecture.save();
+
+      // ✅ Find All Students in the Same Class & Section
+      const students = await Student.find({ class: lectureClass, section });
+
+      if (students.length > 0) {
+          // ✅ Update Each Student's `lectures[]` Array
+          await Student.updateMany(
+              { class: lectureClass, section },
+              { $push: { lectures: newLecture._id } } // Push new lecture ID
+          );
+      }
+
+      res.status(201).json({ message: "Lecture created successfully!", lecture: newLecture });
+  } catch (error) {
+      res.status(500).json({ message: "Server error!", error: error.message });
+  }
+};
+// ✅ Get All Lectures
+const getLectures = async (req, res) => {
+  try {
+      const lectures = await Lecture.find().sort({ createdAt: -1 });
+      res.status(200).json(lectures);
+  } catch (error) {
+      res.status(500).json({ message: "Server error!", error: error.message });
+  }
+};
+
 
 export {
   adminRegistration,
@@ -3823,5 +3859,7 @@ export {
   scheduleMeetingWithTeacher,
   getAllTeachersMeetings,
   getAllStudentsMeetings,
-  getDashboardCounts
+  getDashboardCounts,
+  createLecture,
+  getLectures
 }

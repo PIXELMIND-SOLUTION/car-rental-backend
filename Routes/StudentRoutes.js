@@ -30,7 +30,8 @@ import {
     getFeeSummaryByUserId,
     getStudentComplaints,
     submitHomework,
-    getStudentMeetings
+    getStudentMeetings,
+    getStudentLectures
 } from '../Controller/StudentController.js'
 
 router.get('/get-exam-schedule/:studentId', getExamScheduleByStudent)
@@ -57,6 +58,8 @@ router.get('/fees-summary/:userId', getFeeSummaryByUserId);
 router.get('/my-complaint/:userId', getStudentComplaints);
 router.get('/my-meetings/:studentId', getStudentMeetings);
 router.post('/submit-homework/:homeworkId/:studentId', submitHomework);
+router.get("/lectures/:studentId", getStudentLectures);
+
 
 
 

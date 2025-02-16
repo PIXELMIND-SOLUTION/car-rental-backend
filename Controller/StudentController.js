@@ -10,6 +10,7 @@ import Syllabus from '../Models/Syllabus.js';
 import Marks from '../Models/Mark.js';
 import Notice from '../Models/Notice.js';
 import Leave from '../Models/Leave.js';
+import Lecture from '../Models/Lecture.js';
 import jwt from 'jsonwebtoken'
 import PDFDocument from 'pdfkit';
 import dotenv from 'dotenv';
@@ -905,6 +906,25 @@ const submitHomework = async (req, res) => {
   }
 };
 
+// ✅ Get Student Lectures by Student ID
+const getStudentLectures = async (req, res) => {
+  try {
+      const { studentId } = req.params;
+
+      // ✅ Find Student by ID
+      const student = await Student.findById(studentId).populate("lectures");
+
+      if (!student) {
+          return res.status(404).json({ message: "Student not found!" });
+      }
+
+      // ✅ Return Expanded Lecture Details
+      res.status(200).json({ lectures: student.lectures });
+  } catch (error) {
+      res.status(500).json({ message: "Server error!", error: error.message });
+  }
+};
+
 export  {
     getStudents,
     getStudentById,
@@ -935,5 +955,6 @@ export  {
     getStudentComplaints,
     submitHomework,
     updateLeaveStudentStatus,
-    getStudentMeetings
+    getStudentMeetings,
+    getStudentLectures
 };

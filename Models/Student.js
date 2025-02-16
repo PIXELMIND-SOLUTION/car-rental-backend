@@ -394,7 +394,9 @@ homework: [
     // Any other fields you'd like to include (e.g., notes, attachments, etc.)
   }
 ],
-meetings: [{ type: mongoose.Schema.Types.ObjectId, ref: "Meeting" }]
+meetings: [{ type: mongoose.Schema.Types.ObjectId, ref: "Meeting" }],
+lectures: [{ type: mongoose.Schema.Types.ObjectId, ref: "Lecture" }] // ✅ Linked Lecture IDs
+
 
 
 
