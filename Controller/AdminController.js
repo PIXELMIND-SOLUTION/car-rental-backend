@@ -41,6 +41,7 @@ import generateRefreshToken from '../config/refreshtoken.js';
 import generateToken from '../config/jwtToken.js';
 import multer from 'multer'
 import crypto from 'crypto'
+import axios from 'axios';
 
 
 
@@ -3738,6 +3739,42 @@ const getLectures = async (req, res) => {
   }
 };
 
+const trackTeacherLocation = async (req, res) => {
+  const teacherId = req.params.teacherId;
+
+  try {
+    console.log("Fetching location data...");  // Debugging
+
+    // Step 1: Fetch IP location data using IPInfo API
+    const ipResponse = await axios.get(`https://ipinfo.io/json?token=4e17ed0d1786e4`);
+    console.log("IPInfo Response Data:", ipResponse.data);  // Debugging
+
+    // Extracting latitude and longitude from loc
+    const { loc, city, region, country, postal } = ipResponse.data;
+    const [latitude, longitude] = loc.split(',');
+
+    // Creating an approximate address based on available data
+    const address = `${city}, ${region}, ${country}, Postal Code: ${postal}`;
+
+    // Returning detailed location information
+    res.json({
+      teacherId,
+      ip: ipResponse.data.ip,
+      city,
+      region,
+      country,
+      postal,
+      latitude,
+      longitude,
+      address,  // Approximate address from IPInfo API
+      location: ipResponse.data, // Full location data from IPInfo API
+    });
+  } catch (error) {
+    console.error("Error fetching location:", error.message);  // Debugging
+    res.status(500).json({ error: "Failed to track location" });
+  }
+};
+
 
 export {
   adminRegistration,
@@ -3861,5 +3898,6 @@ export {
   getAllStudentsMeetings,
   getDashboardCounts,
   createLecture,
-  getLectures
+  getLectures,
+  trackTeacherLocation 
 }
