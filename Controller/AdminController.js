@@ -35,6 +35,7 @@ import Marks from '../Models/Mark.js';
 import Staff from '../Models/Staff.js';
 import Parent from '../Models/Parent.js'
 import Lecture from '../Models/Lecture.js';
+import Demo from '../Models/Demo.js';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import generateRefreshToken from '../config/refreshtoken.js';
@@ -3775,6 +3776,39 @@ const trackTeacherLocation = async (req, res) => {
   }
 };
 
+// ✅ Create Demo Entry & Save to Database
+const createDemo = async (req, res) => {
+  try {
+    const { fullName, email, phone, address, demoFor, demoDate, demoTime } = req.body;
+
+    // ✅ Check if the same date and time slot is already booked
+    const existingDemo = await Demo.findOne({ demoDate, demoTime });
+    if (existingDemo) {
+      return res.status(400).json({ message: "This slot is already booked. Please choose another date and time." });
+    }
+
+    // ✅ Create a new Demo entry
+    const newDemo = new Demo({ fullName, email, phone, address, demoFor, demoDate, demoTime });
+    await newDemo.save();
+
+    res.status(201).json({ message: "Demo entry created successfully!", demo: newDemo });
+  } catch (error) {
+    res.status(500).json({ message: "Server error!", error: error.message });
+  }
+};
+
+
+
+// ✅ Get All Demo Entries
+const getAllDemos = async (req, res) => {
+  try {
+    const demos = await Demo.find();
+    res.status(200).json({ message: "All demo entries fetched successfully!", demos });
+  } catch (error) {
+    res.status(500).json({ message: "Server error!", error: error.message });
+  }
+};
+
 
 export {
   adminRegistration,
@@ -3899,5 +3933,7 @@ export {
   getDashboardCounts,
   createLecture,
   getLectures,
-  trackTeacherLocation 
+  trackTeacherLocation,
+  createDemo,
+  getAllDemos
 }

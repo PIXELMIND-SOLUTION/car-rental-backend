@@ -107,7 +107,9 @@ import {
   getDashboardCounts,
   createLecture,
   getLectures,
-  trackTeacherLocation
+  trackTeacherLocation,
+  createDemo,
+  getAllDemos
 } from '../Controller/AdminController.js'
 
 // Configure multer for file uploads
@@ -229,6 +231,8 @@ router.get('/get-alldashboard', getDashboardCounts);
 router.post("/create-lecture", createLecture); // ✅ Create a lecture
 router.get("/all-lecture", getLectures); // ✅ Get all lectures
 router.post("/track-teacher/:teacherId", trackTeacherLocation);
+router.post("/create-demo", createDemo);
+router.get("/get-demo", getAllDemos);
 router.post('/settings', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'schoolImage', maxCount: 1 }]), updateSchoolDetails);
 
 
