@@ -33,7 +33,7 @@ const io = new Server(server, {
 export { io };
 
 app.use(cors({
-    origin: ['http://localhost:3000', 'https://school-manage-zeta.vercel.app', 'https://educare-coaching.vercel.app', 'https://macbell-coaching-frontend.vercel.app'],
+    origin: ['http://localhost:3000', 'https://school-manage-zeta.vercel.app', 'https://educare-coaching.vercel.app', 'https://macbell-coaching-frontend.vercel.app', 'https://macbell-educare.vercel.app'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
