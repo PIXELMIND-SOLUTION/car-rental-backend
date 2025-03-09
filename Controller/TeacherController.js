@@ -14,7 +14,11 @@ import ComplaintModel from '../Models/Complaint.js';
 import generateRefreshToken from '../config/refreshtoken.js';
 import Assignment from '../Models/Assignment.js';
 import generateToken from '../config/jwtToken.js';
+import { SpeechClient } from '@google-cloud/speech';
 import multer from 'multer'
+
+const client = new SpeechClient();
+
 
 const getTeachers = asyncHandler(async (req, res) => {
   const teachers = await Teacher.find();
@@ -1107,6 +1111,53 @@ const getTeacherMeetingsWithAdmin = async (req, res) => {
   }
 };
 
+const processCommand = (command) => {
+  const lowerCommand = command.toLowerCase();
+  console.log('Processing command:', command); // Debugging log
+
+  if (lowerCommand.includes('homework') && lowerCommand.includes('tomorrow')) {
+    if (lowerCommand.includes('math')) {
+      return 'Your Math homework for tomorrow is exercises from Chapter 5.';
+    } else if (lowerCommand.includes('science')) {
+      return 'Your Science homework for tomorrow is a worksheet on the solar system.';
+    } else if (lowerCommand.includes('english')) {
+      return 'Your English homework for tomorrow is to read pages 10-20 and write a summary.';
+    } else if (lowerCommand.includes('history')) {
+      return 'Your History homework for tomorrow is to write an essay on the French Revolution.';
+    } else if (lowerCommand.includes('geography')) {
+      return 'Your Geography homework for tomorrow is to complete the map of South America.';
+    } else {
+      return "Sorry, I couldn't determine the subject for tomorrow's homework.";
+    }
+  } else if (lowerCommand.includes('attendance')) {
+    return 'Your attendance has been updated.';
+  } else {
+    return "Sorry, I couldn't understand the command.";
+  }
+};
+
+// Controller function to handle the voice command
+const handleVoiceCommand = (req, res) => {
+  const { transcription } = req.body;
+  console.log('Received transcription:', transcription); // Debugging log
+
+  if (!transcription) {
+    return res.status(400).json({ error: 'No transcription provided' });
+  }
+
+  // Process the transcription and get a response
+  const commandResponse = processCommand(transcription);
+  console.log('Command Response:', commandResponse); // Debugging log
+
+  // Send the response back to the frontend
+  res.json({ response: commandResponse });
+};
+
+
+
+
+
+
 
 export {
   getTeachers,
@@ -1148,6 +1199,7 @@ export {
   createMeeting,
   getMeetings,
   getMeetingById,
-  getTeacherMeetingsWithAdmin
+  getTeacherMeetingsWithAdmin,
+  handleVoiceCommand
 
 };

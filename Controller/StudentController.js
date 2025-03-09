@@ -10,6 +10,7 @@ import Syllabus from '../Models/Syllabus.js';
 import Marks from '../Models/Mark.js';
 import Notice from '../Models/Notice.js';
 import Leave from '../Models/Leave.js';
+import Doubt from '../Models/Doubt.js';
 import Lecture from '../Models/Lecture.js';
 import jwt from 'jsonwebtoken'
 import PDFDocument from 'pdfkit';
@@ -925,6 +926,82 @@ const getStudentLectures = async (req, res) => {
   }
 };
 
+
+// Ask a doubt to a student
+const askDoubt = async (req, res) => {
+  const { doubtText, askedBy, askedTo, subject } = req.body;
+
+  // Create a new doubt
+  const newDoubt = new Doubt({
+    doubtText,
+    askedBy,
+    askedTo,
+    subject,
+  });
+
+  try {
+    // Save the new doubt
+    const savedDoubt = await newDoubt.save();
+
+    // Find the student who asked the doubt (askedBy) and add the doubt to their 'myDoubts' array
+    const studentAskedBy = await Student.findById(askedBy);
+    studentAskedBy.myDoubts.push(savedDoubt._id);
+    await studentAskedBy.save();
+
+    // Find the student who is being asked the doubt (askedTo) and add the doubt to their 'receivedDoubts' array
+    const studentAskedTo = await Student.findById(askedTo);
+    studentAskedTo.receivedDoubts.push(savedDoubt._id);
+    await studentAskedTo.save();
+
+    res.status(200).json({ message: 'Doubt asked and saved successfully!' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+
+// Controller to get doubts for a student with student details like firstName, lastName, class, and section
+const getDoubts = async (req, res) => {
+  const { studentId } = req.params; // studentId passed as a URL parameter
+
+  try {
+    // Find the student by their ID and populate the required fields including 'askedBy' and 'askedTo'
+    const student = await Student.findById(studentId)
+      .populate({
+        path: 'myDoubts',
+        populate: [
+          { path: 'askedBy', select: 'firstName lastName class section' },  // Populate askedBy with necessary fields
+          { path: 'askedTo', select: 'firstName lastName class section' },    // Populate askedTo with necessary fields
+        ]
+      })
+      .populate({
+        path: 'receivedDoubts',
+        populate: [
+          { path: 'askedBy', select: 'firstName lastName class section' },  // Populate askedBy with necessary fields
+          { path: 'askedTo', select: 'firstName lastName class section' },    // Populate askedTo with necessary fields
+        ]
+      });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // Get the doubts the student has asked (myDoubts) and received (receivedDoubts)
+    const myDoubts = student.myDoubts;
+    const receivedDoubts = student.receivedDoubts;
+
+    // Respond with both myDoubts and receivedDoubts, including the student details
+    res.status(200).json({
+      myDoubts,
+      receivedDoubts,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+
+
 export  {
     getStudents,
     getStudentById,
@@ -956,5 +1033,7 @@ export  {
     submitHomework,
     updateLeaveStudentStatus,
     getStudentMeetings,
-    getStudentLectures
+    getStudentLectures,
+    askDoubt,
+    getDoubts
 };

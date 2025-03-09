@@ -31,7 +31,9 @@ import {
     getStudentComplaints,
     submitHomework,
     getStudentMeetings,
-    getStudentLectures
+    getStudentLectures,
+    askDoubt,
+    getDoubts
 } from '../Controller/StudentController.js'
 
 router.get('/get-exam-schedule/:studentId', getExamScheduleByStudent)
@@ -59,6 +61,9 @@ router.get('/my-complaint/:userId', getStudentComplaints);
 router.get('/my-meetings/:studentId', getStudentMeetings);
 router.post('/submit-homework/:homeworkId/:studentId', submitHomework);
 router.get("/lectures/:studentId", getStudentLectures);
+router.post("/ask", askDoubt);
+router.get('/doubts/:studentId', getDoubts);
+
 
 
 

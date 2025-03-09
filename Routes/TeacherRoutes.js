@@ -25,8 +25,14 @@ import {
     getTeacherLeaves,
     createMeeting,
     getMeetings,
-    getTeacherMeetingsWithAdmin, 
+    getTeacherMeetingsWithAdmin,
+    handleVoiceCommand, 
 } from '../Controller/TeacherController.js';
+// Setup multer for in-memory file storage (without saving to disk)
+import multer from 'multer'
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 
 
 router.post('/add-attendance/:studentId', markAttendanceForStudent);
@@ -53,7 +59,7 @@ router.post('/post-assignment', postAssignment);
 router.post("/meetings", createMeeting);
 router.get("/meetings", getMeetings);
 router.get("/admin-meetings/:teacherId", getTeacherMeetingsWithAdmin);
-
+router.post('/voice-command', handleVoiceCommand);
 
 
 
