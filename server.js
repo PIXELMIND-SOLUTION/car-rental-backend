@@ -12,11 +12,31 @@ import ParentRoutes from './Routes/ParentRoutes.js';
 import busRoutes from './Routes/busRoutes.js';
 import { calculateDistance } from "./utils/calculateDistance.js";
 import Bus from './Models/Bus.js';
-import { Server } from 'socket.io';  // Import Socket.IO
+import { Server } from 'socket.io'; // Import Socket.IO
+import i18n from 'i18n'; // Import i18n for internationalization
+import path from 'path'; // Import path to work with file and directory paths
+import { fileURLToPath } from 'url'; // Import the fileURLToPath function to handle URLs
+import orderRoutes from "./Routes/orderRoutes.js"
+
 
 dotenv.config();
 
 const app = express();
+
+// Get the current directory in ES modules
+const __filename = fileURLToPath(import.meta.url); // Get the current file URL
+const __dirname = path.dirname(__filename); // Get the directory name from the file path
+
+// Set up i18n for translations
+i18n.configure({
+  locales: ['en', 'es'], // Add your languages here
+  directory: path.join(__dirname, 'locales'), // Correct way to get directory in ES modules
+  defaultLocale: 'en', // Default language
+  objectNotation: true, // Enable object notation for nested keys
+});
+
+// Use i18n middleware
+app.use(i18n.init);
 
 // Create an HTTP server with Express app
 const server = http.createServer(app);
@@ -50,10 +70,19 @@ app.use('/api/teacher', TeacherRoutes);
 app.use('/api/students', StudentRoutes);
 app.use('/api/parent', ParentRoutes);
 app.use("/api/bus", busRoutes);
+app.use("/api/orders", orderRoutes);
 
-// Default route
+
+// Default route with i18n translation
 app.get("/", (req, res) => {
-    res.json({ message: "Hello from Server" });
+    res.json({ message: res.__('welcome') }); // Access translations using res.__('key')
+});
+
+// Change language route
+app.get("/change-language", (req, res) => {
+    const lang = req.query.lang || 'en'; // Default to English if no lang is specified
+    res.setLocale(lang);  // Set the locale for this request
+    res.json({ message: res.__('welcome') }); // Respond with the translation of 'welcome' key
 });
 
 // Set interval for bus location updates and checking
