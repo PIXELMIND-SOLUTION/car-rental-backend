@@ -1,13 +1,11 @@
 import jwt from 'jsonwebtoken'; // For JWT token generation
 import dotenv from 'dotenv';
 import User from '../Models/User.js';
-import admin from '../config/firebaseConfig.js'; // Import Firebase config
 import multer from 'multer'; // Import multer for file handling
 import path from 'path';  // To resolve file paths
 import Booking from '../Models/Booking.js';
 import Car from '../Models/Car.js';
 
-dotenv.config();
 
 
 
@@ -112,35 +110,6 @@ export const loginUser = async (req, res) => {
   }
 };
 
-
-
-export const verifyOtp = async (req, res) => {
-    try {
-        const { idToken } = req.body;
-
-        if (!idToken) {
-            return res.status(400).json({ message: "ID Token is required" });
-        }
-
-        // Verify the ID Token using Firebase Admin SDK
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const { phone_number } = decodedToken;
-
-        // Check if user exists in database
-        let user = await User.findOne({ mobile: phone_number });
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Generate JWT Token
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: "1h" });
-
-        return res.status(200).json({ message: "User verified successfully", token });
-    } catch (error) {
-        return res.status(500).json({ message: "OTP Verification failed", error: error.message });
-    }
-};
 
 
 // User Controller (GET User)

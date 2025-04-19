@@ -2,7 +2,6 @@ import express from 'express';
 import { 
     registerUser,
      loginUser, 
-     verifyOtp, 
      getUser, 
      updateUser,
      createProfile, 
@@ -19,7 +18,6 @@ router.post('/register', registerUser);
 
 // Login Route
 router.post('/login', loginUser);
-router.post("/verify-otp", verifyOtp);
 // Get user details (GET)
 router.get('/get-user/:id', getUser);  // Adding a middleware to verify JWT token
 

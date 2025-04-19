@@ -2,7 +2,6 @@ import express from 'express';
 import { 
     registerStaff, 
     loginStaff, 
-    verifyStaffOtp, 
     getStaff, 
     updateStaff,
     createStaffProfile, 
@@ -18,7 +17,6 @@ router.post('/register', registerStaff);
 router.post('/login', loginStaff);
 
 // Staff OTP Verification Route
-router.post('/verify-otp', verifyStaffOtp);
 router.get('/get-staff/:id', getStaff);
 router.put('/update-staff/:id', updateStaff);
 

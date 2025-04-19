@@ -1,10 +1,8 @@
 import jwt from 'jsonwebtoken'; // For JWT token generation
 import dotenv from 'dotenv';
-import admin from '../config/firebaseConfig.js'; // Import Firebase config
 import Staff from '../Models/Staff.js';
 import multer from 'multer'; // Import multer for file handling
 import path from 'path';  // To resolve file paths
-dotenv.config();
 
 
 // Set up storage for profile images using Multer
@@ -100,34 +98,6 @@ export const loginStaff = async (req, res) => {
     }
 };
 
-// Staff OTP Verification Controller
-export const verifyStaffOtp = async (req, res) => {
-    try {
-        const { idToken } = req.body;
-
-        if (!idToken) {
-            return res.status(400).json({ message: "ID Token is required" });
-        }
-
-        // Verify the ID Token using Firebase Admin SDK
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const { phone_number } = decodedToken;
-
-        // Check if staff exists in database
-        let staff = await Staff.findOne({ mobile: phone_number });
-
-        if (!staff) {
-            return res.status(404).json({ message: "Staff not found" });
-        }
-
-        // Generate JWT Token
-        const token = jwt.sign({ id: staff._id }, process.env.JWT_SECRET_KEY, { expiresIn: "1h" });
-
-        return res.status(200).json({ message: "Staff verified successfully", token });
-    } catch (error) {
-        return res.status(500).json({ message: "OTP Verification failed", error: error.message });
-    }
-};
 
 // Staff Controller (GET Staff)
 export const getStaff = async (req, res) => {
