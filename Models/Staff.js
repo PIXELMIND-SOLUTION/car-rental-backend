@@ -1,33 +1,22 @@
 import mongoose from 'mongoose';
 
-const { Schema } = mongoose;
-
-const staffSchema = new Schema({
-  firstName: { type: String },
-  lastName: { type: String },
-  email: { type: String, unique: true },
-  phone: { type: String },
-  position: { type: String },
-  department: { type: String },
-  gender: { type: String, enum: ['Male', 'Female', 'Other'] },
-  dateOfBirth: { type: Date },
-  address: {
-    street: { type: String },
-    city: { type: String },
-    state: { type: String },
-    zipCode: { type: String },
+const staffSchema = new mongoose.Schema({
+  name: {
+    type: String,
   },
-  joiningDate: { type: Date },
-  salary: { type: Number },
-  employeeId: { type: String, unique: true },
-  emergencyContact: {
-    name: { type: String },
-    relation: { type: String },
-    phone: { type: String },
+  email: {
+    type: String,
+    unique: true,
   },
-  profilePicture: { type: String },
-  qualifications: { type: [String] },
-  createdAt: { type: Date, default: Date.now },
+  mobile: {
+    type: String,
+    unique: true,
+  },
+  profileImage: {
+    type: String,
+    default: 'default-profile-image.jpg', // Optional default image
+  },
+  // Any additional fields for staff can be added here (e.g. role, department)
 });
 
 const Staff = mongoose.model('Staff', staffSchema);

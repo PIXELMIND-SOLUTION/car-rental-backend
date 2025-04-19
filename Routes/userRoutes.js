@@ -1,0 +1,45 @@
+import express from 'express';
+import { 
+    registerUser,
+     loginUser, 
+     verifyOtp, 
+     getUser, 
+     updateUser,
+     createProfile, 
+     editProfile, 
+     getProfile,
+     createBooking,
+     getUserBookings
+    } from '../Controller/UserController.js'; // Import UserController
+
+const router = express.Router();
+
+// Registration Route
+router.post('/register', registerUser);
+
+// Login Route
+router.post('/login', loginUser);
+router.post("/verify-otp", verifyOtp);
+// Get user details (GET)
+router.get('/get-user/:id', getUser);  // Adding a middleware to verify JWT token
+
+// Update user details (PUT)
+router.put('/update-user/:id', updateUser);  // Adding a middleware to verify JWT token
+// Create a new profile with Form Data (including profile image)
+router.post('/create-profile/:id', createProfile);  // Profile creation with userId in params
+
+// Edit the user profile by userId
+router.put('/edit-profile/:id', editProfile);  // Profile editing by userId
+
+// Get the user profile by userId
+router.get('/get-profile/:id', getProfile);  // Get profile by userId
+router.post('/create-booking', createBooking);  // Get profile by userId
+// Assuming you're using Express router
+router.get('/bookings/:userId', getUserBookings);
+
+
+
+
+
+
+export default router;
