@@ -115,7 +115,7 @@ export const loginUser = async (req, res) => {
 // User Controller (GET User)
 export const getUser = async (req, res) => {
   try {
-    const userId = req.params.id;  // Get the user ID from request params
+    const userId = req.params.userId;  // Get the user ID from request params
 
     // Find user by ID
     const user = await User.findById(userId);
@@ -242,7 +242,7 @@ export const editProfile = [
   upload.single('profileImage'),  // 'profileImage' is the field name in the Form Data
   async (req, res) => {
     try {
-      const userId = req.params.id; // Get userId from params
+      const userId = req.params.userId; // Get userId from params
 
       // Check if the user exists by userId
       const existingUser = await User.findById(userId);
@@ -418,5 +418,75 @@ export const getUserBookings = async (req, res) => {
     return res.status(500).json({ message: 'Error fetching bookings', error: error.message });
   }
 };
+
+
+
+// Booking Summary Controller
+export const getBookingSummary = async (req, res) => {
+  const { userId, bookingId } = req.params;
+
+  if (!userId || !bookingId) {
+    return res.status(400).json({ message: 'User ID and Booking ID are required' });
+  }
+
+  try {
+    // Find the booking with given userId and bookingId
+    const booking = await Booking.findOne({ _id: bookingId, userId })
+      .populate('carId') // populate car details
+      .populate('userId', 'name email mobile') // populate user info (optional)
+      .exec();
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Booking summary fetched successfully',
+      booking
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: 'Error fetching booking summary',
+      error: error.message
+    });
+  }
+};
+
+
+
+// Get Recent Booking Controller
+export const getRecentBooking = async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required' });
+  }
+
+  try {
+    // Find the most recent booking for the given userId
+    const booking = await Booking.findOne({ userId })
+      .populate('carId') // populate car details
+      .sort({ createdAt: -1 }) // Sort to get the most recent booking
+      .exec();
+
+    if (!booking) {
+      return res.status(404).json({ message: 'No recent booking found' });
+    }
+
+    return res.status(200).json({
+      message: 'Recent booking fetched successfully',
+      booking
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: 'Error fetching recent booking',
+      error: error.message
+    });
+  }
+};
+
+
 
 

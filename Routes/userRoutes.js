@@ -8,7 +8,9 @@ import {
      editProfile, 
      getProfile,
      createBooking,
-     getUserBookings
+     getUserBookings,
+     getBookingSummary,
+     getRecentBooking
     } from '../Controller/UserController.js'; // Import UserController
 
 const router = express.Router();
@@ -19,7 +21,7 @@ router.post('/register', registerUser);
 // Login Route
 router.post('/login', loginUser);
 // Get user details (GET)
-router.get('/get-user/:id', getUser);  // Adding a middleware to verify JWT token
+router.get('/get-user/:userId', getUser);  // Adding a middleware to verify JWT token
 
 // Update user details (PUT)
 router.put('/update-user/:id', updateUser);  // Adding a middleware to verify JWT token
@@ -27,13 +29,17 @@ router.put('/update-user/:id', updateUser);  // Adding a middleware to verify JW
 router.post('/create-profile/:id', createProfile);  // Profile creation with userId in params
 
 // Edit the user profile by userId
-router.put('/edit-profile/:id', editProfile);  // Profile editing by userId
+router.put('/edit-profile/:userId', editProfile);  // Profile editing by userId
 
 // Get the user profile by userId
 router.get('/get-profile/:id', getProfile);  // Get profile by userId
 router.post('/create-booking', createBooking);  // Get profile by userId
 // Assuming you're using Express router
 router.get('/bookings/:userId', getUserBookings);
+router.get('/booking-summary/:userId/:bookingId', getBookingSummary);
+router.get('/recent-booking/:userId', getRecentBooking);
+
+
 
 
 
