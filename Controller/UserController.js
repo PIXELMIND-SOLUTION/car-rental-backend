@@ -304,7 +304,7 @@ export const getProfile = async (req, res) => {
 
 export const createBooking = async (req, res) => {
   try {
-    const { userId, carId, rentalStartDate, rentalEndDate, from, to, pickupLocation, dropLocation } = req.body;
+    const { userId, carId, rentalStartDate, rentalEndDate, from, to, pickupLocation, dropLocation, deliveryDate, deliveryTime } = req.body;
 
     // Fetch the car details to get pricePerHour
     const car = await Car.findById(carId);
@@ -337,6 +337,8 @@ export const createBooking = async (req, res) => {
       totalPrice,
       pickupLocation,
       dropLocation,
+      deliveryDate,      // 👈 new field
+      deliveryTime,       // 👈 new field
       otp // <-- Add OTP to the booking
     });
 
@@ -374,6 +376,8 @@ export const createBooking = async (req, res) => {
         pickupLocation: savedBooking.pickupLocation,
         dropLocation: savedBooking.dropLocation,
         otp: savedBooking.otp, // <-- Return OTP in response
+        deliveryDate: savedBooking.deliveryDate,
+        deliveryTime: savedBooking.deliveryTime,
         createdAt: savedBooking.createdAt,
         updatedAt: savedBooking.updatedAt
       },
@@ -486,6 +490,56 @@ export const getRecentBooking = async (req, res) => {
     });
   }
 };
+
+
+export const extendBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { newDeliveryDate, newDeliveryTime } = req.body;
+
+    // Find booking
+    const booking = await Booking.findById(bookingId).populate('carId');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    // Parse new delivery datetime
+    const newDeliveryDateTime = new Date(`${newDeliveryDate}T${newDeliveryTime}:00Z`);
+    const oldEndTime = new Date(booking.rentalEndDate);
+
+    // Check if new time is actually an extension
+    if (newDeliveryDateTime <= oldEndTime) {
+      return res.status(400).json({ message: 'New delivery time must be after the current rental end time' });
+    }
+
+    // Calculate extra hours
+    const extraHours = Math.ceil((newDeliveryDateTime - oldEndTime) / (1000 * 60 * 60));
+
+    // Update total price
+    const pricePerHour = booking.carId.pricePerHour;
+    booking.totalPrice += extraHours * pricePerHour;
+
+    // Update end time, delivery date/time
+    booking.rentalEndDate = newDeliveryDateTime;
+    booking.deliveryDate = newDeliveryDate;
+    booking.deliveryTime = newDeliveryTime;
+
+    const updatedBooking = await booking.save();
+
+    return res.status(200).json({
+      message: 'Booking extended successfully',
+      updatedBooking: {
+        _id: updatedBooking._id,
+        rentalEndDate: updatedBooking.rentalEndDate.toLocaleString('en-US'),
+        deliveryDate: updatedBooking.deliveryDate,
+        deliveryTime: updatedBooking.deliveryTime,
+        totalPrice: updatedBooking.totalPrice
+      }
+    });
+  } catch (err) {
+    console.error('Extend Booking Error:', err);
+    return res.status(500).json({ message: 'Error extending booking' });
+  }
+};
+
 
 
 

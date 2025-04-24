@@ -21,6 +21,12 @@ const bookingSchema = new Schema({
     type: Date,
     required: true,
   },
+  deliveryDate: {
+  type: String, // or Date if you prefer, but for "just the date", String is simpler
+},
+deliveryTime: {
+  type: String, // e.g., "12:00 PM"
+},
   totalPrice: {
     type: Number,
     required: true,

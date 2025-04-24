@@ -5,18 +5,21 @@ import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import connectDatabase from './db/connectDatabase.js';
-import path from 'path'; // Import path to work with file and directory paths
 import UserRoutes from './Routes/userRoutes.js'
 import staffRoutes from './Routes/staffRoutes.js'
 import carRoutes from './Routes/carRoutes.js'
-
-import { fileURLToPath } from 'url';  // Import the fileURLToPath method
-
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
+// ✅ Serve static files from /uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(cors({
     origin: ['http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -40,7 +43,6 @@ app.get("/", (req, res) => {
 
 
 // Get the directory name for the current file (equivalent of __dirname in CommonJS)
-const __filename = fileURLToPath(import.meta.url);
 
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
