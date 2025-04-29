@@ -494,30 +494,27 @@ export const getRecentBooking = async (req, res) => {
 
 export const extendBooking = async (req, res) => {
   try {
-    const { bookingId } = req.params;
+    const { userId, bookingId } = req.params;
     const { newDeliveryDate, newDeliveryTime } = req.body;
 
-    // Find booking
-    const booking = await Booking.findById(bookingId).populate('carId');
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    // Find booking and check ownership
+    const booking = await Booking.findOne({ _id: bookingId, userId }).populate('carId');
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found or does not belong to this user' });
+    }
 
     // Parse new delivery datetime
     const newDeliveryDateTime = new Date(`${newDeliveryDate}T${newDeliveryTime}:00Z`);
     const oldEndTime = new Date(booking.rentalEndDate);
 
-    // Check if new time is actually an extension
     if (newDeliveryDateTime <= oldEndTime) {
       return res.status(400).json({ message: 'New delivery time must be after the current rental end time' });
     }
 
-    // Calculate extra hours
     const extraHours = Math.ceil((newDeliveryDateTime - oldEndTime) / (1000 * 60 * 60));
-
-    // Update total price
     const pricePerHour = booking.carId.pricePerHour;
     booking.totalPrice += extraHours * pricePerHour;
 
-    // Update end time, delivery date/time
     booking.rentalEndDate = newDeliveryDateTime;
     booking.deliveryDate = newDeliveryDate;
     booking.deliveryTime = newDeliveryTime;
@@ -539,6 +536,7 @@ export const extendBooking = async (req, res) => {
     return res.status(500).json({ message: 'Error extending booking' });
   }
 };
+
 
 
 

@@ -10,7 +10,8 @@ import {
      createBooking,
      getUserBookings,
      getBookingSummary,
-     getRecentBooking
+     getRecentBooking,
+     extendBooking
     } from '../Controller/UserController.js'; // Import UserController
 
 const router = express.Router();
@@ -38,6 +39,8 @@ router.post('/create-booking', createBooking);  // Get profile by userId
 router.get('/bookings/:userId', getUserBookings);
 router.get('/booking-summary/:userId/:bookingId', getBookingSummary);
 router.get('/recent-booking/:userId', getRecentBooking);
+router.put('/extendbookings/:userId/:bookingId', extendBooking);
+
 
 
 
