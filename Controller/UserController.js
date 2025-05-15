@@ -41,10 +41,9 @@ const upload = multer({
 });
 
 
-// User Registration Controller
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, mobile } = req.body;
+    const { name, email, mobile, code } = req.body;
 
     // Check if user already exists
     const userExist = await User.findOne({ $or: [{ email }, { mobile }] });
@@ -52,26 +51,40 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User with this email or mobile already exists!' });
     }
 
-    // Create a new user
+    // Create new user
     const newUser = new User({
       name,
       email,
       mobile,
+      code: code || null,
     });
 
-    // Save the user to the database
     await newUser.save();
 
-    // Generate JWT token for the user
+    // Generate JWT token
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
 
-    return res.status(201).json({ message: 'Registration successful', token });
+    // ✅ Send full user details in response
+    return res.status(201).json({
+      message: 'Registration successful',
+      token,
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        mobile: newUser.mobile,
+        code: newUser.code,
+        wallet: newUser.wallet || [],
+        createdAt: newUser.createdAt,
+        updatedAt: newUser.updatedAt,
+      },
+    });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error' });
   }
-};
-
+}
 
 export const loginUser = async (req, res) => {
   const { mobile } = req.body;
@@ -536,6 +549,57 @@ export const extendBooking = async (req, res) => {
     return res.status(500).json({ message: 'Error extending booking' });
   }
 };
+
+
+
+
+export const addToWallet = async (req, res) => {
+  const { userId } = req.params
+  const { amount } = req.body
+
+  if (!amount || isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ error: 'Invalid amount' })
+  }
+
+  try {
+    const user = await User.findById(userId)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const newTransaction = {
+      amount: Number(amount),
+      type: 'credit',
+      message: `Paid To Wallet`
+    }
+
+    user.wallet.push(newTransaction)
+    await user.save()
+
+    res.json({
+      message: 'Amount added to wallet',
+      transaction: newTransaction,
+      wallet: user.wallet
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Server error' })
+  }
+}
+
+
+// Get wallet transactions
+export const getWalletTransactions = async (req, res) => {
+  const { userId } = req.params
+
+  try {
+    const user = await User.findById(userId)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    res.status(200).json({ wallet: user.wallet })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+}
 
 
 

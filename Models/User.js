@@ -23,6 +23,31 @@ const userSchema = new mongoose.Schema({
     type: Schema.Types.ObjectId,
     ref: 'Booking', // Reference to Booking model
   }],
+  wallet: [
+  {
+    amount: {
+      type: Number,
+      required: true
+    },
+    type: {
+      type: String,
+      enum: ['credit', 'debit'],
+      required: true
+    },
+    message: {
+      type: String,
+      default: ''
+    },
+    date: {
+      type: Date,
+      default: Date.now
+    }
+  }
+],
+ code: {
+    type: String, // ✅ Optional field
+    default: null,
+  },
   profileImage: {
     type: String,
     default: 'default-profile-image.jpg', // Optional default image

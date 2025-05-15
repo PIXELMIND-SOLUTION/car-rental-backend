@@ -11,7 +11,9 @@ import {
      getUserBookings,
      getBookingSummary,
      getRecentBooking,
-     extendBooking
+     extendBooking,
+     addToWallet,
+     getWalletTransactions
     } from '../Controller/UserController.js'; // Import UserController
 
 const router = express.Router();
@@ -40,6 +42,10 @@ router.get('/bookings/:userId', getUserBookings);
 router.get('/booking-summary/:userId/:bookingId', getBookingSummary);
 router.get('/recent-booking/:userId', getRecentBooking);
 router.put('/extendbookings/:userId/:bookingId', extendBooking);
+
+// Route to add amount to wallet
+router.post('/addamount/:userId', addToWallet)
+router.get('/getwallet/:userId', getWalletTransactions)
 
 
 
