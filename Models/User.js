@@ -52,6 +52,27 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'default-profile-image.jpg', // Optional default image
   },
+
+ documents: {
+  aadharCard: {
+    url: { type: String },
+    uploadedAt: { type: Date },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    }
+  },
+  drivingLicense: {
+    url: { type: String },
+    uploadedAt: { type: Date },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    }
+  }
+},
 }, {
   timestamps: true  // CreatedAt and UpdatedAt fields automatically
 });

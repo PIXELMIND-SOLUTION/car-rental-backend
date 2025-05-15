@@ -2,7 +2,24 @@ import Car from "../Models/Car.js";
 // Add a new car
 export const addCar = async (req, res) => {
   try {
-    const { carName, model, year, pricePerHour, type, description, carImage, location, carType, fuel, seats } = req.body;
+    const {
+      carName,
+      model,
+      year,
+      pricePerHour,
+      type,
+      description,
+      carImage = [], // ✅ default to empty array if not provided
+      location,
+      carType,
+      fuel,
+      seats,
+    } = req.body;
+
+    // Optional: Validate that carImage is an array of strings
+    if (!Array.isArray(carImage)) {
+      return res.status(400).json({ message: 'carImage should be an array of image URLs' });
+    }
 
     const newCar = new Car({
       carName,
@@ -19,43 +36,42 @@ export const addCar = async (req, res) => {
     });
 
     const savedCar = await newCar.save();
-    return res.status(201).json({ message: 'Car added successfully', car: savedCar });
+    return res.status(201).json({
+      message: 'Car added successfully',
+      car: savedCar,
+    });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: 'Error adding car' });
+    return res.status(500).json({ message: 'Error adding car', error: err.message });
   }
 };
 
 // Get all cars with optional filters
 export const getAllCars = async (req, res) => {
   try {
-    const { carType, fuel } = req.query;
+    const { type, fuel, seats, location } = req.query;
 
-    // Build the filter object based on query parameters
-    let filter = {};
+    // Dynamically build filter object
+    const filter = {};
 
-    if (carType) {
-      filter.carType = carType;  // Apply filter if carType is provided
-    }
+    if (type) filter.type = type;
+    if (fuel) filter.fuel = fuel;
+    if (seats) filter.seats = parseInt(seats);
+    if (location) filter.location = new RegExp(location, 'i'); // case-insensitive match
 
-    if (fuel) {
-      filter.fuel = fuel;  // Apply filter if fuel type is provided
-    }
-
-    // Fetch cars based on the filter, or all cars if no filter is applied
     const cars = await Car.find(filter);
 
-    // If no cars are found, return a message indicating no results
-    if (cars.length === 0) {
-      return res.status(404).json({ message: 'No cars found with this filter' });
+    if (!cars.length) {
+      return res.status(404).json({ message: 'No cars found with the provided filters' });
     }
 
-    return res.status(200).json(cars);
+    return res.status(200).json({ total: cars.length, cars });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: 'Error fetching cars' });
+    return res.status(500).json({ message: 'Error fetching cars', error: err.message });
   }
 };
+
 
 // Get a car by ID
 export const getCarById = async (req, res) => {

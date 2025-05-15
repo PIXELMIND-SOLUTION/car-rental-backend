@@ -20,22 +20,23 @@ const carSchema = new Schema({
   },
   availabilityStatus: {
     type: Boolean,
-    default: true, // true means available, false means booked/unavailable
+    default: true,
   },
   carImage: {
-    type: String, // URL to the image of the car
+    type: [String], // ✅ Array of image URLs
+    default: [],    // ✅ Optional default to avoid null
   },
   location: {
-    type: String, // Car's location or rental center
+    type: String,
   },
   carType: {
-    type: String, // Type of car (e.g., Sedan, SUV, etc.)
+    type: String,
   },
   fuel: {
-    type: String, // Fuel type (e.g., Petrol, Diesel, Electric)
+    type: String,
   },
   seats: {
-    type: Number, // Number of seats in the car
+    type: Number,
   },
   type: {
     type: String,

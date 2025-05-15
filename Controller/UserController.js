@@ -5,6 +5,7 @@ import multer from 'multer'; // Import multer for file handling
 import path from 'path';  // To resolve file paths
 import Booking from '../Models/Booking.js';
 import Car from '../Models/Car.js';
+import cloudinary from '../config/cloudinary.js';
 
 
 
@@ -94,23 +95,31 @@ export const loginUser = async (req, res) => {
   }
 
   try {
-    // ✅ Find user by mobile number
+    // Find user by mobile number
     let user = await User.findOne({ mobile });
 
-    // 🆕 If user doesn't exist, create one
+    // If user doesn't exist, create one
     if (!user) {
       user = new User({ mobile });
       await user.save();
     }
 
-    // ✅ Respond with user info
+    // Generate JWT token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
+
+    // Respond with full user details like registration
     return res.status(200).json({
       message: "Login successful",
+      token,
       user: {
         _id: user._id,
-        mobile: user.mobile,
         name: user.name || null,
-        myBookings: user.myBookings || []
+        email: user.email || null,
+        mobile: user.mobile,
+        code: user.code || null,
+        wallet: user.wallet || [],
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       }
     });
 
@@ -600,6 +609,100 @@ export const getWalletTransactions = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' })
   }
 }
+
+
+
+export const uploadUserDocuments = async (req, res) => {
+  try {
+    const userId = req.params.userId
+
+    const user = await User.findById(userId)
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    const uploadedDocs = {}
+
+    // Upload Aadhar Card
+    if (req.files?.aadharCard) {
+      const result = await cloudinary.uploader.upload(
+        req.files.aadharCard.tempFilePath,
+        { folder: 'user_documents/aadhar' }
+      )
+
+      uploadedDocs.aadharCard = {
+        url: result.secure_url,
+        uploadedAt: new Date(),
+        status: 'pending'
+      }
+    }
+
+    // Upload Driving License
+    if (req.files?.drivingLicense) {
+      const result = await cloudinary.uploader.upload(
+        req.files.drivingLicense.tempFilePath,
+        { folder: 'user_documents/license' }
+      )
+
+      uploadedDocs.drivingLicense = {
+        url: result.secure_url,
+        uploadedAt: new Date(),
+        status: 'pending'
+      }
+    }
+
+    // Push to existing user.documents
+    user.documents = {
+      ...user.documents,
+      ...uploadedDocs
+    }
+
+    await user.save()
+
+    return res.status(200).json({
+      message: 'Documents uploaded successfully',
+      documents: user.documents
+    })
+
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({
+      message: 'Error uploading documents',
+      error: error.message
+    })
+  }
+}
+
+
+
+export const getUserDocuments = async (req, res) => {
+  try {
+    const userId = req.params.userId
+
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    if (!user.documents || (Object.keys(user.documents).length === 0)) {
+      return res.status(404).json({ message: 'No documents uploaded' })
+    }
+
+    return res.status(200).json({
+      message: 'User documents fetched successfully',
+      documents: user.documents
+    })
+
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({
+      message: 'Error fetching documents',
+      error: error.message
+    })
+  }
+}
+
 
 
 

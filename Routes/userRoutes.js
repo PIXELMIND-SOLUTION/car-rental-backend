@@ -13,10 +13,17 @@ import {
      getRecentBooking,
      extendBooking,
      addToWallet,
-     getWalletTransactions
+     getWalletTransactions,
+     uploadUserDocuments,
+     getUserDocuments
     } from '../Controller/UserController.js'; // Import UserController
 
 const router = express.Router();
+import fileUpload from 'express-fileupload'
+
+router.use(fileUpload({ useTempFiles: true }))
+
+
 
 // Registration Route
 router.post('/register', registerUser);
@@ -46,6 +53,9 @@ router.put('/extendbookings/:userId/:bookingId', extendBooking);
 // Route to add amount to wallet
 router.post('/addamount/:userId', addToWallet)
 router.get('/getwallet/:userId', getWalletTransactions)
+router.post('/uploaddocuments/:userId', uploadUserDocuments)
+router.get('/documents/:userId', getUserDocuments)
+
 
 
 
