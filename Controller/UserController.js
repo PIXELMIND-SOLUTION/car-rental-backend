@@ -117,7 +117,6 @@ export const loginUser = async (req, res) => {
         email: user.email || null,
         mobile: user.mobile,
         code: user.code || null,
-        wallet: user.wallet || [],
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       }
@@ -563,52 +562,59 @@ export const extendBooking = async (req, res) => {
 
 
 export const addToWallet = async (req, res) => {
-  const { userId } = req.params
-  const { amount } = req.body
+  const { userId } = req.params;
+  const { amount } = req.body;
 
   if (!amount || isNaN(amount) || amount <= 0) {
-    return res.status(400).json({ error: 'Invalid amount' })
+    return res.status(400).json({ error: 'Invalid amount' });
   }
 
   try {
-    const user = await User.findById(userId)
-    if (!user) return res.status(404).json({ error: 'User not found' })
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Get last known balance
+    const lastTransaction = user.wallet[user.wallet.length - 1];
+    let currentTotal = lastTransaction?.totalWalletAmount || 0;
+
+    // Add this transaction amount to running total
+    currentTotal += Number(amount);
 
     const newTransaction = {
       amount: Number(amount),
       type: 'credit',
-      message: `Paid To Wallet`
-    }
+      message: 'Paid To Wallet',
+      totalWalletAmount: currentTotal
+    };
 
-    user.wallet.push(newTransaction)
-    await user.save()
+    user.wallet.push(newTransaction);
+    await user.save();
 
     res.json({
       message: 'Amount added to wallet',
       transaction: newTransaction,
       wallet: user.wallet
-    })
+    });
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Server error' })
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-}
+};
 
 
-// Get wallet transactions
 export const getWalletTransactions = async (req, res) => {
-  const { userId } = req.params
+  const { userId } = req.params;
 
   try {
-    const user = await User.findById(userId)
-    if (!user) return res.status(404).json({ error: 'User not found' })
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-    res.status(200).json({ wallet: user.wallet })
+    res.status(200).json({ wallet: user.wallet });
   } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: 'Internal server error' })
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-}
+};
 
 
 
