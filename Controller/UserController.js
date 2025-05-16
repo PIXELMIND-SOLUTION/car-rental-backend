@@ -325,64 +325,63 @@ export const getProfile = async (req, res) => {
 
 export const createBooking = async (req, res) => {
   try {
-    const { userId, carId, rentalStartDate, rentalEndDate, from, to, pickupLocation, dropLocation, deliveryDate, deliveryTime } = req.body;
+    const {
+      userId,
+      carId,
+      rentalStartDate,
+      rentalEndDate,
+      from,
+      to
+    } = req.body;
 
-    // Fetch the car details to get pricePerHour
+    // 1. Find the car
     const car = await Car.findById(carId);
-    if (!car) {
-      return res.status(404).json({ message: 'Car not found' });
-    }
+    if (!car) return res.status(404).json({ message: 'Car not found' });
 
-    // Combine rentalStartDate with 'from' time to create the full start date
+    // 2. Create full datetime values
     const rentalStartDateTime = new Date(`${rentalStartDate}T${from}:00Z`);
     const rentalEndDateTime = new Date(`${rentalEndDate}T${to}:00Z`);
 
-    // Ensure the rental period is valid
+    // 3. Validate rental period
     if (rentalStartDateTime >= rentalEndDateTime) {
-      return res.status(400).json({ message: 'Rental start date and time must be before the end date and time' });
+      return res.status(400).json({
+        message: 'Rental start date and time must be before the end date and time'
+      });
     }
 
-    // Calculate the duration in hours
-    const durationInHours = Math.ceil((rentalEndDateTime - rentalStartDateTime) / (1000 * 60 * 60));
+    // 4. Calculate rental duration and price
+    const durationInHours = Math.ceil(
+      (rentalEndDateTime - rentalStartDateTime) / (1000 * 60 * 60)
+    );
     const totalPrice = durationInHours * car.pricePerHour;
 
-    // Generate a 4-digit OTP
+    // 5. Generate OTP
     const otp = Math.floor(1000 + Math.random() * 9000);
 
-    // Create a new booking document
+    // 6. Create booking document
     const newBooking = new Booking({
       userId,
       carId,
       rentalStartDate: rentalStartDateTime,
       rentalEndDate: rentalEndDateTime,
       totalPrice,
-      pickupLocation,
-      dropLocation,
-      deliveryDate,      // 👈 new field
-      deliveryTime,       // 👈 new field
-      otp // <-- Add OTP to the booking
+      otp
     });
 
     const savedBooking = await newBooking.save();
 
-    // Find the user and add the booking ID
+    // 7. Link booking to user
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.myBookings.push(savedBooking._id);
     await user.save();
 
-    // Format readable date strings
-    const readableStartDate = rentalStartDateTime.toLocaleString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true
-    });
+    // 8. Format readable dates
+    const readableStartDate = rentalStartDateTime.toLocaleString('en-US');
+    const readableEndDate = rentalEndDateTime.toLocaleString('en-US');
 
-    const readableEndDate = rentalEndDateTime.toLocaleString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true
-    });
-
+    // 9. Respond with booking and car details including 'from' and 'to'
     return res.status(201).json({
       message: 'Booking created successfully',
       booking: {
@@ -391,22 +390,88 @@ export const createBooking = async (req, res) => {
         carId: savedBooking.carId,
         rentalStartDate: readableStartDate,
         rentalEndDate: readableEndDate,
+        from, // show original input time
+        to,   // show original input time
         totalPrice: savedBooking.totalPrice,
         status: savedBooking.status,
         paymentStatus: savedBooking.paymentStatus,
-        pickupLocation: savedBooking.pickupLocation,
-        dropLocation: savedBooking.dropLocation,
-        otp: savedBooking.otp, // <-- Return OTP in response
-        deliveryDate: savedBooking.deliveryDate,
-        deliveryTime: savedBooking.deliveryTime,
+        otp: savedBooking.otp,
+        pickupLocation: car.location || null,
         createdAt: savedBooking.createdAt,
         updatedAt: savedBooking.updatedAt
       },
+      car: {
+        _id: car._id,
+        carName: car.carName,
+        brand: car.brand,
+        model: car.model,
+        pricePerHour: car.pricePerHour,
+        location: car.location,
+        carImage: car.carImage
+      }
     });
 
   } catch (err) {
-    console.error(err);
+    console.error('Error in createBooking:', err);
     return res.status(500).json({ message: 'Error creating booking' });
+  }
+};
+
+
+
+
+
+
+export const payForBooking = async (req, res) => {
+  const { userId, bookingId } = req.params;
+
+  if (!userId || !bookingId) {
+    return res.status(400).json({ message: 'User ID and Booking ID are required' });
+  }
+
+  try {
+    const user = await User.findById(userId);
+    const booking = await Booking.findById(bookingId).populate('carId');
+
+    if (!user || !booking) {
+      return res.status(404).json({ message: 'User or booking not found' });
+    }
+
+    if (booking.paymentStatus === 'Paid') {
+      return res.status(400).json({ message: 'Booking already paid' });
+    }
+
+    const totalWalletBalance = user.wallet.reduce((acc, txn) =>
+      txn.type === 'credit' ? acc + txn.amount : acc - txn.amount
+    , 0);
+
+    if (totalWalletBalance < booking.totalPrice) {
+      return res.status(400).json({ message: 'Insufficient wallet balance' });
+    }
+
+    // Deduct wallet
+    const txn = {
+      amount: booking.totalPrice,
+      type: 'debit',
+      message: `Payment for booking of car: ${booking.carId?.carName || 'N/A'}`,
+      totalWalletAmount: totalWalletBalance - booking.totalPrice
+    };
+
+    user.wallet.push(txn);
+    booking.paymentStatus = 'Paid';
+
+    await user.save();
+    await booking.save();
+
+    return res.status(200).json({
+      message: 'Payment successful',
+      walletTransaction: txn,
+      updatedBooking: booking
+    });
+
+  } catch (error) {
+    console.error('Error in payForBooking:', error);
+    return res.status(500).json({ message: 'Payment failed', error: error.message });
   }
 };
 
@@ -446,7 +511,6 @@ export const getUserBookings = async (req, res) => {
 
 
 
-// Booking Summary Controller
 export const getBookingSummary = async (req, res) => {
   const { userId, bookingId } = req.params;
 
@@ -455,20 +519,52 @@ export const getBookingSummary = async (req, res) => {
   }
 
   try {
-    // Find the booking with given userId and bookingId
+    // Fetch the booking details with car info and user info
     const booking = await Booking.findOne({ _id: bookingId, userId })
-      .populate('carId') // populate car details
-      .populate('userId', 'name email mobile') // populate user info (optional)
+      .populate('carId') // Populate car info
+      .populate('userId', 'name email mobile') // Populate user info
       .exec();
 
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
+    // Format the rental start and end dates
+    const formattedStart = new Date(booking.rentalStartDate).toLocaleString('en-US');
+    const formattedEnd = new Date(booking.rentalEndDate).toLocaleString('en-US');
+
+    // Fetch the car details from the populated carId
+    const car = booking.carId;
+
     return res.status(200).json({
       message: 'Booking summary fetched successfully',
-      booking
+      booking: {
+        _id: booking._id,
+        userId: booking.userId,
+        carId: booking.carId._id,
+        rentalStartDate: formattedStart,
+        rentalEndDate: formattedEnd,
+        totalPrice: booking.totalPrice,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        otp: booking.otp,
+        deliveryDate: booking.deliveryDate,
+        deliveryTime: booking.deliveryTime,
+        pickupLocation: car.location || null,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt
+      },
+      car: {
+        _id: car._id,
+        carName: car.carName,
+        brand: car.brand,
+        model: car.model,
+        pricePerHour: car.pricePerHour,
+        location: car.location,
+        carImage: car.carImage, // Return car images array
+      }
     });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -477,6 +573,7 @@ export const getBookingSummary = async (req, res) => {
     });
   }
 };
+
 
 
 

@@ -15,7 +15,8 @@ import {
      addToWallet,
      getWalletTransactions,
      uploadUserDocuments,
-     getUserDocuments
+     getUserDocuments,
+     payForBooking
     } from '../Controller/UserController.js'; // Import UserController
 
 const router = express.Router();
@@ -47,6 +48,7 @@ router.post('/create-booking', createBooking);  // Get profile by userId
 // Assuming you're using Express router
 router.get('/bookings/:userId', getUserBookings);
 router.get('/booking-summary/:userId/:bookingId', getBookingSummary);
+router.post('/pay/:userId/:bookingId', payForBooking);
 router.get('/recent-booking/:userId', getRecentBooking);
 router.put('/extendbookings/:userId/:bookingId', extendBooking);
 

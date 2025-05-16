@@ -38,7 +38,7 @@ deliveryTime: {
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid'],
+    enum: ['pending', 'Paid'],
     default: 'pending', // Payment status of the booking
   },
   pickupLocation: {
