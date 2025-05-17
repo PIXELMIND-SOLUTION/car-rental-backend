@@ -330,35 +330,54 @@ export const createBooking = async (req, res) => {
       carId,
       rentalStartDate,
       rentalEndDate,
-      from,
-      to
+      from, // Example: "10:00 AM"
+      to    // Example: "3:00 PM"
     } = req.body;
 
     // 1. Find the car
     const car = await Car.findById(carId);
     if (!car) return res.status(404).json({ message: 'Car not found' });
 
-    // 2. Create full datetime values
-    const rentalStartDateTime = new Date(`${rentalStartDate}T${from}:00Z`);
-    const rentalEndDateTime = new Date(`${rentalEndDate}T${to}:00Z`);
+    // 2. Convert AM/PM to 24-hour time
+    const convertTo24Hour = (time) => {
+      const [hours, minutesAndPeriod] = time.split(':');
+      const [minutes, period] = minutesAndPeriod.split(' ');
 
-    // 3. Validate rental period
+      let hours24 = parseInt(hours);
+      if (period === 'PM' && hours24 !== 12) {
+        hours24 += 12;
+      } else if (period === 'AM' && hours24 === 12) {
+        hours24 = 0;
+      }
+
+      return `${hours24}:${minutes}`;
+    };
+
+    // Convert from and to times into 24-hour format
+    const rentalStartTime = convertTo24Hour(from);
+    const rentalEndTime = convertTo24Hour(to);
+
+    // 3. Create full datetime values
+    const rentalStartDateTime = new Date(`${rentalStartDate}T${rentalStartTime}:00Z`);
+    const rentalEndDateTime = new Date(`${rentalEndDate}T${rentalEndTime}:00Z`);
+
+    // 4. Validate rental period
     if (rentalStartDateTime >= rentalEndDateTime) {
       return res.status(400).json({
         message: 'Rental start date and time must be before the end date and time'
       });
     }
 
-    // 4. Calculate rental duration and price
+    // 5. Calculate rental duration and price
     const durationInHours = Math.ceil(
-      (rentalEndDateTime - rentalStartDateTime) / (1000 * 60 * 60)
+      (rentalEndDateTime - rentalStartDateTime) / (1000 * 60 * 60) // Convert milliseconds to hours
     );
     const totalPrice = durationInHours * car.pricePerHour;
 
-    // 5. Generate OTP
+    // 6. Generate OTP
     const otp = Math.floor(1000 + Math.random() * 9000);
 
-    // 6. Create booking document
+    // 7. Create booking document
     const newBooking = new Booking({
       userId,
       carId,
@@ -370,28 +389,43 @@ export const createBooking = async (req, res) => {
 
     const savedBooking = await newBooking.save();
 
-    // 7. Link booking to user
+    // 8. Link booking to user
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.myBookings.push(savedBooking._id);
     await user.save();
 
-    // 8. Format readable dates
-    const readableStartDate = rentalStartDateTime.toLocaleString('en-US');
-    const readableEndDate = rentalEndDateTime.toLocaleString('en-US');
+    // 9. Format readable dates (AM/PM format for time and date)
+    const readableStartDate = rentalStartDateTime.toLocaleString('en-US', { 
+      hour: 'numeric', 
+      minute: 'numeric', 
+      hour12: true, 
+      month: 'numeric', 
+      day: 'numeric', 
+      year: 'numeric'
+    });
 
-    // 9. Respond with booking and car details including 'from' and 'to'
+    const readableEndDate = rentalEndDateTime.toLocaleString('en-US', { 
+      hour: 'numeric', 
+      minute: 'numeric', 
+      hour12: true, 
+      month: 'numeric', 
+      day: 'numeric', 
+      year: 'numeric'
+    });
+
+    // 10. Respond with booking and car details including 'from' and 'to'
     return res.status(201).json({
       message: 'Booking created successfully',
       booking: {
         _id: savedBooking._id,
         userId: savedBooking.userId,
         carId: savedBooking.carId,
-        rentalStartDate: readableStartDate,
-        rentalEndDate: readableEndDate,
-        from, // show original input time
-        to,   // show original input time
+        rentalStartDate: readableStartDate,  // Combined Date + AM/PM time format
+        rentalEndDate: readableEndDate,      // Combined Date + AM/PM time format
+        from, // original input start time
+        to,   // original input end time
         totalPrice: savedBooking.totalPrice,
         status: savedBooking.status,
         paymentStatus: savedBooking.paymentStatus,
@@ -403,7 +437,6 @@ export const createBooking = async (req, res) => {
       car: {
         _id: car._id,
         carName: car.carName,
-        brand: car.brand,
         model: car.model,
         pricePerHour: car.pricePerHour,
         location: car.location,
@@ -416,6 +449,7 @@ export const createBooking = async (req, res) => {
     return res.status(500).json({ message: 'Error creating booking' });
   }
 };
+
 
 
 
@@ -662,56 +696,70 @@ export const addToWallet = async (req, res) => {
   const { userId } = req.params;
   const { amount } = req.body;
 
+  // Validate the amount input
   if (!amount || isNaN(amount) || amount <= 0) {
     return res.status(400).json({ error: 'Invalid amount' });
   }
 
   try {
+    // Find the user in the database
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Get last known balance
-    const lastTransaction = user.wallet[user.wallet.length - 1];
-    let currentTotal = lastTransaction?.totalWalletAmount || 0;
+    // Calculate the new total wallet amount by adding the new credit amount
+    const newTotalWalletAmount = user.totalWalletAmount + Number(amount);
 
-    // Add this transaction amount to running total
-    currentTotal += Number(amount);
-
+    // Create a new transaction object
     const newTransaction = {
       amount: Number(amount),
-      type: 'credit',
+      type: 'credit', // Assuming you're adding money to the wallet (credit)
       message: 'Paid To Wallet',
-      totalWalletAmount: currentTotal
+      date: new Date()
     };
 
+    // Add the new transaction to the user's wallet
     user.wallet.push(newTransaction);
+
+    // Update the total wallet amount in the user's schema
+    user.totalWalletAmount = newTotalWalletAmount;
+
+    // Save the user document with the updated wallet and totalWalletAmount
     await user.save();
 
+    // Return the response with the updated wallet and transaction details
     res.json({
       message: 'Amount added to wallet',
-      transaction: newTransaction,
+      totalWalletAmount: user.totalWalletAmount,  // The updated total wallet amount
       wallet: user.wallet
     });
   } catch (err) {
-    console.error(err);
+    console.error('Error in adding to wallet:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 
 export const getWalletTransactions = async (req, res) => {
   const { userId } = req.params;
 
   try {
+    // Find the user by userId
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(404).json({ error: 'We couldn\'t find a user with that ID. Please try again.' });
 
-    res.status(200).json({ wallet: user.wallet });
+    // Return the wallet transactions and the total wallet amount
+    res.status(200).json({
+      message: 'Wallet transactions fetched successfully.',
+      totalWalletAmount: user.totalWalletAmount, // Include the total wallet balance
+      wallet: user.wallet // Include the list of transactions
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Something went wrong while fetching your wallet details. Please try again later.' });
   }
 };
+
 
 
 

@@ -42,12 +42,12 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
       },
-      totalWalletAmount: {
-        type: Number,
-        default: 0
-      }
     }
   ],
+  totalWalletAmount: {
+    type: Number,
+    default: 0 // The total balance of the wallet
+  },
  code: {
     type: String, // ✅ Optional field
     default: null,
