@@ -8,18 +8,17 @@ import connectDatabase from './db/connectDatabase.js';
 import UserRoutes from './Routes/userRoutes.js'
 import staffRoutes from './Routes/staffRoutes.js'
 import carRoutes from './Routes/carRoutes.js'
-import path from 'path';
-import { fileURLToPath } from 'url';
+
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
+
+
 
 const app = express();
 
 // ✅ Serve static files from /uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(cors({
     origin: ['http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -29,9 +28,9 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
-
 // Database connection
 connectDatabase();
+
 
 // Default route
 app.get("/", (req, res) => {
@@ -48,7 +47,6 @@ app.get("/", (req, res) => {
 app.use(bodyParser.json());
 
 // Serve frontend static files (HTML, JS, CSS)
-app.use(express.static(path.join(path.resolve(), '../client')));
 
 
 // Create HTTP server with Express app

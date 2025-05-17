@@ -3,9 +3,8 @@ import {
     registerUser,
      loginUser, 
      getUser, 
-     updateUser,
      createProfile, 
-     editProfile, 
+     editProfileImage, 
      getProfile,
      createBooking,
      getUserBookings,
@@ -36,12 +35,11 @@ router.post('/login', loginUser);
 router.get('/get-user/:userId', getUser);  // Adding a middleware to verify JWT token
 
 // Update user details (PUT)
-router.put('/update-user/:id', updateUser);  // Adding a middleware to verify JWT token
 // Create a new profile with Form Data (including profile image)
-router.post('/create-profile/:id', createProfile);  // Profile creation with userId in params
+router.post('/create-profile/:userId', createProfile);  // Profile creation with userId in params
 
 // Edit the user profile by userId
-router.put('/edit-profile/:userId', editProfile);  // Profile editing by userId
+router.put('/edit-profile/:userId', editProfileImage);  // Profile editing by userId
 
 // Get the user profile by userId
 router.get('/get-profile/:id', getProfile);  // Get profile by userId
