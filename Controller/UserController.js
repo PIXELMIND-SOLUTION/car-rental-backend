@@ -42,6 +42,11 @@ const upload = multer({
 });
 
 
+const generateReferralCode = () => {
+  // Generate a random referral code (e.g., 6-character alphanumeric code)
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+};
+
 export const registerUser = async (req, res) => {
   try {
     const { name, email, mobile, code } = req.body;
@@ -52,20 +57,38 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User with this email or mobile already exists!' });
     }
 
+    // Generate random referral code for the new user
+    const referralCode = generateReferralCode();
+
     // Create new user
     const newUser = new User({
       name,
       email,
       mobile,
-      code: code || null,
+      code: referralCode, // Save the generated referral code
     });
 
+    // If the user has entered a referral code, validate it and apply points
+    if (code) {
+      const referrer = await User.findOne({ code });
+      if (referrer) {
+        // Reward the user and the referrer with points (or some other mechanism)
+        newUser.referredBy = referrer._id; // Link to the referrer
+        newUser.points = 50;  // New user gets 50 points
+        referrer.points = (referrer.points || 0) + 50;  // Referrer gets 50 points as well
+
+        // Save both the new user and the referrer with updated points
+        await referrer.save();
+      }
+    }
+
+    // Save the new user to the database
     await newUser.save();
 
     // Generate JWT token
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
 
-    // ✅ Send full user details in response
+    // Return the response
     return res.status(201).json({
       message: 'Registration successful',
       token,
@@ -74,7 +97,8 @@ export const registerUser = async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         mobile: newUser.mobile,
-        code: newUser.code,
+        code: newUser.code, // The referral code for the user
+        points: newUser.points || 0,  // Points for the user
         wallet: newUser.wallet || [],
         createdAt: newUser.createdAt,
         updatedAt: newUser.updatedAt,
@@ -85,7 +109,8 @@ export const registerUser = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: 'Server error' });
   }
-}
+};
+
 
 export const loginUser = async (req, res) => {
   const { mobile } = req.body;
@@ -853,6 +878,33 @@ export const getUserDocuments = async (req, res) => {
     })
   }
 }
+
+
+
+export const getReferralCode = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findById(userId).select('code name email');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Referral code fetched successfully',
+      referralCode: user.code,
+      user: {
+        name: user.name,
+        email: user.email
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching referral code:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 
 
 

@@ -48,6 +48,8 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0 // The total balance of the wallet
   },
+  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Referrer user
+  points: { type: Number, default: 0 },  // Points earned by user
  code: {
     type: String, // ✅ Optional field
     default: null,

@@ -16,7 +16,8 @@ import {
      getWalletTransactions,
      uploadUserDocuments,
      getUserDocuments,
-     payForBooking
+     payForBooking,
+     getReferralCode
     } from '../Controller/UserController.js'; // Import UserController
 
 const router = express.Router();
@@ -57,6 +58,8 @@ router.post('/addamount/:userId', addToWallet)
 router.get('/getwallet/:userId', getWalletTransactions)
 router.post('/uploaddocuments/:userId', uploadUserDocuments)
 router.get('/documents/:userId', getUserDocuments)
+router.get('/getreffercode/:userId', getReferralCode)
+
 
 
 
