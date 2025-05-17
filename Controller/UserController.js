@@ -355,54 +355,54 @@ export const createBooking = async (req, res) => {
       carId,
       rentalStartDate,
       rentalEndDate,
-      from, // Example: "10:00 AM"
-      to    // Example: "3:00 PM"
+      from, // e.g. "4:00 AM"
+      to    // e.g. "8:00 PM"
     } = req.body;
 
-    // 1. Find the car
+    // 1. Find car
     const car = await Car.findById(carId);
     if (!car) return res.status(404).json({ message: 'Car not found' });
 
     // 2. Convert AM/PM to 24-hour time
     const convertTo24Hour = (time) => {
-      const [hours, minutesAndPeriod] = time.split(':');
-      const [minutes, period] = minutesAndPeriod.split(' ');
+      const [timePart, period] = time.trim().split(/\s+/);
+      const [hours, minutes] = timePart.split(':');
 
-      let hours24 = parseInt(hours);
-      if (period === 'PM' && hours24 !== 12) {
-        hours24 += 12;
-      } else if (period === 'AM' && hours24 === 12) {
-        hours24 = 0;
-      }
+      let hours24 = parseInt(hours, 10);
+      if (period.toUpperCase() === 'PM' && hours24 !== 12) hours24 += 12;
+      if (period.toUpperCase() === 'AM' && hours24 === 12) hours24 = 0;
 
-      return `${hours24}:${minutes}`;
+      return `${hours24.toString().padStart(2, '0')}:${minutes.padStart(2, '0')}`;
     };
 
-    // Convert from and to times into 24-hour format
     const rentalStartTime = convertTo24Hour(from);
     const rentalEndTime = convertTo24Hour(to);
 
-    // 3. Create full datetime values
-    const rentalStartDateTime = new Date(`${rentalStartDate}T${rentalStartTime}:00Z`);
-    const rentalEndDateTime = new Date(`${rentalEndDate}T${rentalEndTime}:00Z`);
+    // 3. Create full datetime strings
+    const rentalStartDateTime = new Date(`${rentalStartDate}T${rentalStartTime}:00`);
+    const rentalEndDateTime = new Date(`${rentalEndDate}T${rentalEndTime}:00`);
 
-    // 4. Validate rental period
+    // 4. Validate dates
+    if (isNaN(rentalStartDateTime) || isNaN(rentalEndDateTime)) {
+      return res.status(400).json({ message: 'Invalid date or time format' });
+    }
+
     if (rentalStartDateTime >= rentalEndDateTime) {
       return res.status(400).json({
         message: 'Rental start date and time must be before the end date and time'
       });
     }
 
-    // 5. Calculate rental duration and price
+    // 5. Calculate duration and total price
     const durationInHours = Math.ceil(
-      (rentalEndDateTime - rentalStartDateTime) / (1000 * 60 * 60) // Convert milliseconds to hours
+      (rentalEndDateTime - rentalStartDateTime) / (1000 * 60 * 60)
     );
     const totalPrice = durationInHours * car.pricePerHour;
 
     // 6. Generate OTP
     const otp = Math.floor(1000 + Math.random() * 9000);
 
-    // 7. Create booking document
+    // 7. Save booking
     const newBooking = new Booking({
       userId,
       carId,
@@ -414,47 +414,36 @@ export const createBooking = async (req, res) => {
 
     const savedBooking = await newBooking.save();
 
-    // 8. Link booking to user
+    // 8. Link to user
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.myBookings.push(savedBooking._id);
     await user.save();
 
-    // 9. Format readable dates (AM/PM format for time and date)
-    const readableStartDate = rentalStartDateTime.toLocaleString('en-US', { 
-      hour: 'numeric', 
-      minute: 'numeric', 
-      hour12: true, 
-      month: 'numeric', 
-      day: 'numeric', 
-      year: 'numeric'
-    });
+    // 9. Format dates (date-only)
+    const formatDateOnly = (dateObj) =>
+      dateObj.toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric'
+      });
 
-    const readableEndDate = rentalEndDateTime.toLocaleString('en-US', { 
-      hour: 'numeric', 
-      minute: 'numeric', 
-      hour12: true, 
-      month: 'numeric', 
-      day: 'numeric', 
-      year: 'numeric'
-    });
-
-    // 10. Respond with booking and car details including 'from' and 'to'
+    // 10. Response
     return res.status(201).json({
       message: 'Booking created successfully',
       booking: {
         _id: savedBooking._id,
         userId: savedBooking.userId,
         carId: savedBooking.carId,
-        rentalStartDate: readableStartDate,  // Combined Date + AM/PM time format
-        rentalEndDate: readableEndDate,      // Combined Date + AM/PM time format
-        from, // original input start time
-        to,   // original input end time
-        totalPrice: savedBooking.totalPrice,
+        rentalStartDate: formatDateOnly(rentalStartDateTime), // ✅ date-only
+        rentalEndDate: formatDateOnly(rentalEndDateTime),     // ✅ date-only
+        from, // original input
+        to,
+        totalPrice,
         status: savedBooking.status,
         paymentStatus: savedBooking.paymentStatus,
-        otp: savedBooking.otp,
+        otp,
         pickupLocation: car.location || null,
         createdAt: savedBooking.createdAt,
         updatedAt: savedBooking.updatedAt
