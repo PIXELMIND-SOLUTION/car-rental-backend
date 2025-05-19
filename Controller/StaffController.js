@@ -69,7 +69,6 @@ export const registerStaff = async (req, res) => {
   }
 };
 
-// Staff Login Controller (No OTP)
 export const loginStaff = async (req, res) => {
   const { mobile } = req.body;
 
@@ -78,25 +77,25 @@ export const loginStaff = async (req, res) => {
   }
 
   try {
-    // Check if staff already exists
-    let staff = await Staff.findOne({ mobile });
+    // ✅ Check if staff exists
+    const staff = await Staff.findOne({ mobile });
 
-    // If not, create new staff
+    // ❌ If not found, deny login
     if (!staff) {
-      staff = new Staff({ mobile });
-      await staff.save();
+      return res.status(404).json({ error: "Mobile number is not registered" });
     }
 
+    // ✅ If found, allow login
     return res.status(200).json({
       message: "Staff login successful",
       staff,
     });
+
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ error: "Failed to login", details: error.message });
   }
 };
-
 // Staff Controller (GET Staff)
 export const getStaff = async (req, res) => {
   try {
