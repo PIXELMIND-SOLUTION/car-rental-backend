@@ -5,7 +5,10 @@ import {
     getStaff, 
     updateStaff,
     createStaffProfile, 
-    editStaffProfile, 
+    editStaffProfile,
+    getAllBookings,
+    getTodaysBookings,
+    getBookingStatistics, 
  } from '../Controller/StaffController.js'; // Import StaffController
 
 const router = express.Router();
@@ -23,6 +26,9 @@ router.put('/update-staff/:id', updateStaff);
 // Routes for Staff Profile
 router.post('/create-profile/:staffId', createStaffProfile);  // Create or update profile image
 router.put('/update-profile/:staffId', editStaffProfile);    // Edit profile image
+router.get('/allbookings', getAllBookings);
+router.get('/todaybookings', getTodaysBookings);
+router.get('/staticsbookings', getBookingStatistics);
 
 
 export default router;

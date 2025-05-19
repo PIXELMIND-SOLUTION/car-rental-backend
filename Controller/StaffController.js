@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import Staff from '../Models/Staff.js';
 import multer from 'multer'; // Import multer for file handling
 import path from 'path';  // To resolve file paths
+import Booking from '../Models/Booking.js';
 
 
 // Set up storage for profile images using Multer
@@ -68,36 +69,33 @@ export const registerStaff = async (req, res) => {
   }
 };
 
-// Staff Login Controller
+// Staff Login Controller (No OTP)
 export const loginStaff = async (req, res) => {
-    const { mobile } = req.body;
+  const { mobile } = req.body;
 
-    if (!mobile) {
-      return res.status(400).json({ error: "Mobile number is required" });
+  if (!mobile) {
+    return res.status(400).json({ error: "Mobile number is required" });
+  }
+
+  try {
+    // Check if staff already exists
+    let staff = await Staff.findOne({ mobile });
+
+    // If not, create new staff
+    if (!staff) {
+      staff = new Staff({ mobile });
+      await staff.save();
     }
-  
-    try {
-      // ✅ Firebase se staff check karo
-      let staff;
-      try {
-        staff = await admin.auth().getUserByPhoneNumber(mobile);
-      } catch (error) {
-        // 🆕 Agar staff nahi mila to naya staff create karo
-        staff = await admin.auth().createUser({ phoneNumber: mobile });
-      }
-  
-      // ✅ 4-digit OTP generate karo
-      const otp = Math.floor(1000 + Math.random() * 9000);
-      console.log(`📲 Sending OTP ${otp} to ${mobile}`);
-  
-      // ⚠ Yaha SMS API integrate karni hogi (Firebase ya Twilio)
-      
-      return res.json({ message: "OTP sent successfully", otp }); // ⚠ Testing ke liye OTP return kar rahe hain
-    } catch (error) {
-      return res.status(500).json({ error: "Failed to send OTP", details: error.message });
-    }
+
+    return res.status(200).json({
+      message: "Staff login successful",
+      staff,
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ error: "Failed to login", details: error.message });
+  }
 };
-
 
 // Staff Controller (GET Staff)
 export const getStaff = async (req, res) => {
@@ -267,6 +265,210 @@ export const getStaffProfile = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+
+export const getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate('userId', 'name email')
+      .populate('carId');
+
+    const formattedBookings = bookings.map(booking => {
+      const rentalStart = new Date(booking.rentalStartDate);
+      const rentalEnd = new Date(booking.rentalEndDate);
+
+      // Extract time (from/to) in 12-hour format
+      const formatTime12Hour = (date) => {
+        const options = {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        };
+        return date.toLocaleTimeString('en-US', options);
+      };
+
+      const from = formatTime12Hour(rentalStart);
+      const to = formatTime12Hour(rentalEnd);
+
+      return {
+        _id: booking._id,
+        userId: booking.userId,
+        carId: booking.carId._id,
+        rentalStartDate: rentalStart.toLocaleDateString('en-US'),
+        rentalEndDate: rentalEnd.toLocaleDateString('en-US'),
+        from,
+        to,
+        totalPrice: booking.totalPrice,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        otp: booking.otp,
+        pickupLocation: booking.carId.location || null,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+        car: {
+          _id: booking.carId._id,
+          carName: booking.carId.carName,
+          model: booking.carId.model,
+          pricePerHour: booking.carId.pricePerHour,
+          location: booking.carId.location,
+          carImage: booking.carId.carImage,
+        }
+      };
+    });
+
+    return res.status(200).json({
+      message: 'All bookings retrieved successfully',
+      bookings: formattedBookings,
+    });
+
+  } catch (err) {
+    console.error('Error fetching bookings:', err);
+    return res.status(500).json({ message: 'Error fetching bookings' });
+  }
+};
+
+
+
+export const getTodaysBookings = async (req, res) => {
+  try {
+    const now = new Date();
+
+    // Get start of today
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Get end of today
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const bookings = await Booking.find({
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    })
+      .populate('userId', 'name email')
+      .populate('carId');
+
+    const formattedBookings = bookings.map((booking) => {
+      const rentalStart = new Date(booking.rentalStartDate);
+      const rentalEnd = new Date(booking.rentalEndDate);
+
+      const formatTime12Hour = (date) => {
+        const options = { hour: 'numeric', minute: '2-digit', hour12: true };
+        return date.toLocaleTimeString('en-US', options);
+      };
+
+      return {
+        _id: booking._id,
+        userId: booking.userId,
+        carId: booking.carId._id,
+        rentalStartDate: rentalStart.toLocaleDateString('en-US'),
+        rentalEndDate: rentalEnd.toLocaleDateString('en-US'),
+        from: formatTime12Hour(rentalStart),
+        to: formatTime12Hour(rentalEnd),
+        totalPrice: booking.totalPrice,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        otp: booking.otp,
+        pickupLocation: booking.carId.location || null,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+        car: {
+          _id: booking.carId._id,
+          carName: booking.carId.carName,
+          model: booking.carId.model,
+          pricePerHour: booking.carId.pricePerHour,
+          location: booking.carId.location,
+          carImage: booking.carId.carImage,
+        },
+      };
+    });
+
+    return res.status(200).json({
+      message: 'Today’s bookings (based on createdAt) retrieved successfully',
+      bookings: formattedBookings,
+    });
+  } catch (err) {
+    console.error('Error fetching today’s bookings:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+
+export const getBookingStatistics = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+
+    // Aggregate bookings by status and month
+    const statistics = await Booking.aggregate([
+      {
+        $match: {
+          status: { $in: ['completed', 'failed'] },
+          createdAt: {
+            $gte: new Date(`${currentYear}-01-01`),
+            $lt: new Date(`${currentYear + 1}-01-01`),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            status: '$status',
+            month: { $month: '$createdAt' },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { '_id.month': 1 },
+      },
+      {
+        $group: {
+          _id: '$_id.status',
+          monthlyCounts: {
+            $push: {
+              month: '$_id.month',
+              count: '$count',
+            },
+          },
+        },
+      },
+    ]);
+
+    // Month names to map month number to actual month name
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Format the response to include all months for each status
+    const formattedStats = ['completed', 'failed'].map((status) => {
+      const monthlyCounts = statistics.find((stat) => stat._id === status)?.monthlyCounts || [];
+      const monthlyData = Array.from({ length: 12 }, (_, i) => {
+        const month = i + 1;
+        const existing = monthlyCounts.find((count) => count.month === month);
+        return {
+          month: monthNames[month - 1], // Mapping month number to month name
+          count: existing ? existing.count : 0,
+        };
+      });
+
+      return {
+        status,
+        monthlyData,
+      };
+    });
+
+    return res.status(200).json({
+      message: 'Booking statistics retrieved successfully',
+      statistics: formattedStats,
+    });
+  } catch (err) {
+    console.error('Error fetching booking statistics:', err);
+    return res.status(500).json({ message: 'Error fetching booking statistics' });
   }
 };
 
