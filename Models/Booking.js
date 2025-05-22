@@ -5,45 +5,46 @@ const { Schema } = mongoose;
 const bookingSchema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
-    ref: 'User', // Assuming you already have a User schema
-    required: true,
+    ref: 'User', 
   },
   carId: {
     type: Schema.Types.ObjectId,
     ref: 'Car',
-    required: true,
   },
   rentalStartDate: {
-    type: Date,
-    required: true,
+    type: String,  // Store as string "YYYY-MM-DD"
   },
   rentalEndDate: {
-    type: Date,
-    required: true,
+    type: String,  // Store as string "YYYY-MM-DD"
+  },
+  from: {
+    type: String,  // Store time in "hh:mm AM/PM" format
+  },
+  to: {
+    type: String,  // Store time in "hh:mm AM/PM" format
   },
   deliveryDate: {
-  type: String, // or Date if you prefer, but for "just the date", String is simpler
-},
-deliveryTime: {
-  type: String, // e.g., "12:00 PM"
-},
+    type: String, // Store as string (e.g., "2025-09-01")
+  },
+  deliveryTime: {
+    type: String, // Store time as string (e.g., "8:00 PM")
+  },
   totalPrice: {
     type: Number,
-    required: true,
   },
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'cancelled', 'completed', 'active'],
-    default: 'pending', // Status of the booking
+    default: 'pending',
   },
   paymentStatus: {
     type: String,
     enum: ['pending', 'Paid'],
-    default: 'pending', // Payment status of the booking
+    default: 'pending',
   },
   pickupLocation: {
     type: {
-      address: { type: String, },
+      address: { type: String },
       coordinates: {
         type: [Number], // [longitude, latitude]
       },
@@ -51,15 +52,15 @@ deliveryTime: {
   },
   dropLocation: {
     type: {
-      address: { type: String, },
+      address: { type: String },
       coordinates: {
         type: [Number], // [longitude, latitude]
       },
     },
   },
   otp: {
-  type: Number,
-},
+    type: Number,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -70,5 +71,5 @@ deliveryTime: {
   },
 });
 
-const Booking =  mongoose.model('Booking', bookingSchema);
-export default Booking
+const Booking = mongoose.model('Booking', bookingSchema);
+export default Booking;

@@ -273,10 +273,10 @@ export const createBooking = async (req, res) => {
     const {
       userId,
       carId,
-      rentalStartDate,
-      rentalEndDate,
-      from, // e.g. "4:00 AM"
-      to    // e.g. "8:00 PM"
+      rentalStartDate,  // Keep as string: "2025-08-01"
+      rentalEndDate,    // Keep as string: "2025-09-01"
+      from,             // e.g. "8:00 AM"
+      to                // e.g. "8:00 PM"
     } = req.body;
 
     // 1. Find car
@@ -298,12 +298,12 @@ export const createBooking = async (req, res) => {
     const rentalStartTime = convertTo24Hour(from);
     const rentalEndTime = convertTo24Hour(to);
 
-    // 3. Create full datetime strings
-    const rentalStartDateTime = new Date(`${rentalStartDate}T${rentalStartTime}:00`);
-    const rentalEndDateTime = new Date(`${rentalEndDate}T${rentalEndTime}:00`);
+    // 3. Create full datetime strings, but still store as date-only strings
+    const rentalStartDateTime = `${rentalStartDate}T${rentalStartTime}:00`;
+    const rentalEndDateTime = `${rentalEndDate}T${rentalEndTime}:00`;
 
     // 4. Validate dates
-    if (isNaN(rentalStartDateTime) || isNaN(rentalEndDateTime)) {
+    if (isNaN(Date.parse(rentalStartDateTime)) || isNaN(Date.parse(rentalEndDateTime))) {
       return res.status(400).json({ message: 'Invalid date or time format' });
     }
 
@@ -315,7 +315,7 @@ export const createBooking = async (req, res) => {
 
     // 5. Calculate duration and total price
     const durationInHours = Math.ceil(
-      (rentalEndDateTime - rentalStartDateTime) / (1000 * 60 * 60)
+      (new Date(rentalEndDateTime) - new Date(rentalStartDateTime)) / (1000 * 60 * 60)
     );
     const totalPrice = durationInHours * car.pricePerHour;
 
@@ -326,10 +326,14 @@ export const createBooking = async (req, res) => {
     const newBooking = new Booking({
       userId,
       carId,
-      rentalStartDate: rentalStartDateTime,
-      rentalEndDate: rentalEndDateTime,
+      rentalStartDate,   // Store as string, same format: "2025-08-01"
+      rentalEndDate,     // Store as string, same format: "2025-09-01"
+      from,              // Store "from" time
+      to,                // Store "to" time
       totalPrice,
-      otp
+      otp,
+      deliveryDate: rentalEndDate,  // Store as string
+      deliveryTime: to,             // Store as string
     });
 
     const savedBooking = await newBooking.save();
@@ -341,13 +345,11 @@ export const createBooking = async (req, res) => {
     user.myBookings.push(savedBooking._id);
     await user.save();
 
-    // 9. Format dates (date-only)
-    const formatDateOnly = (dateObj) =>
-      dateObj.toLocaleDateString('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: 'numeric'
-      });
+    // 9. Format dates (date-only) for response
+    const formatDateOnly = (dateStr) => {
+      const [year, month, day] = dateStr.split('-');
+      return `${month}-${day}-${year}`;  // Example: "08-01-2025"
+    };
 
     // 10. Response
     return res.status(201).json({
@@ -356,8 +358,8 @@ export const createBooking = async (req, res) => {
         _id: savedBooking._id,
         userId: savedBooking.userId,
         carId: savedBooking.carId,
-        rentalStartDate: formatDateOnly(rentalStartDateTime), // ✅ date-only
-        rentalEndDate: formatDateOnly(rentalEndDateTime),     // ✅ date-only
+        rentalStartDate: formatDateOnly(rentalStartDate), // ✅ date-only
+        rentalEndDate: formatDateOnly(rentalEndDate),     // ✅ date-only
         from, // original input
         to,
         totalPrice,
@@ -366,7 +368,9 @@ export const createBooking = async (req, res) => {
         otp,
         pickupLocation: car.location || null,
         createdAt: savedBooking.createdAt,
-        updatedAt: savedBooking.updatedAt
+        updatedAt: savedBooking.updatedAt,
+        deliveryDate: savedBooking.deliveryDate, // As inputted
+        deliveryTime: savedBooking.deliveryTime  // As inputted
       },
       car: {
         _id: car._id,
@@ -581,47 +585,98 @@ export const getRecentBooking = async (req, res) => {
 export const extendBooking = async (req, res) => {
   try {
     const { userId, bookingId } = req.params;
-    const { newDeliveryDate, newDeliveryTime } = req.body;
+    const { extendDeliveryDate, extendDeliveryTime, hours } = req.body;
 
-    // Find booking and check ownership
+    // Step 1: Get booking
     const booking = await Booking.findOne({ _id: bookingId, userId }).populate('carId');
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found or does not belong to this user' });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    // Step 2: Get old end time from rentalEndDate + to
+    let oldHour = 0;
+    let oldMinute = '00';
+
+    if (booking.to) {
+      const [timePart, period] = booking.to.split(' ');
+      const [hr, min] = timePart.split(':');
+      oldHour = parseInt(hr);
+      oldMinute = min;
+      if (period.toUpperCase() === 'PM' && oldHour !== 12) oldHour += 12;
+      if (period.toUpperCase() === 'AM' && oldHour === 12) oldHour = 0;
     }
 
-    // Parse new delivery datetime
-    const newDeliveryDateTime = new Date(`${newDeliveryDate}T${newDeliveryTime}:00Z`);
-    const oldEndTime = new Date(booking.rentalEndDate);
+    const oldEndTime = new Date(`${booking.rentalEndDate}T${oldHour.toString().padStart(2, '0')}:${oldMinute}:00`);
+    let newEndTime;
 
-    if (newDeliveryDateTime <= oldEndTime) {
-      return res.status(400).json({ message: 'New delivery time must be after the current rental end time' });
+    // Step 3: Extend by hours
+    if (hours && !isNaN(hours)) {
+      newEndTime = new Date(oldEndTime.getTime() + Number(hours) * 60 * 60 * 1000);
     }
 
-    const extraHours = Math.ceil((newDeliveryDateTime - oldEndTime) / (1000 * 60 * 60));
-    const pricePerHour = booking.carId.pricePerHour;
-    booking.totalPrice += extraHours * pricePerHour;
+    // Step 4: Extend by extendDeliveryDate + extendDeliveryTime
+    else if (extendDeliveryDate && extendDeliveryTime) {
+      const [timePart, period] = extendDeliveryTime.split(' ');
+      const [hr, min] = timePart.split(':');
+      let extHour = parseInt(hr);
+      if (period.toUpperCase() === 'PM' && extHour !== 12) extHour += 12;
+      if (period.toUpperCase() === 'AM' && extHour === 12) extHour = 0;
+      const time24 = `${extHour.toString().padStart(2, '0')}:${min}`;
+      newEndTime = new Date(`${extendDeliveryDate}T${time24}:00`);
+    } else {
+      return res.status(400).json({ message: 'Provide either hours or extendDeliveryDate + extendDeliveryTime' });
+    }
 
-    booking.rentalEndDate = newDeliveryDateTime;
-    booking.deliveryDate = newDeliveryDate;
-    booking.deliveryTime = newDeliveryTime;
+    // Step 5: Check if valid
+    if (newEndTime <= oldEndTime) {
+      return res.status(400).json({ message: 'New time must be after current end time' });
+    }
 
-    const updatedBooking = await booking.save();
+    // Step 6: Calculate extra hours and cost safely
+    const extraHours = Math.ceil((newEndTime - oldEndTime) / (1000 * 60 * 60));
+    const pricePerHour = Number(booking.carId.pricePerHour);
+    const currentTotal = Number(booking.totalPrice);
 
+    if (isNaN(pricePerHour) || isNaN(currentTotal)) {
+      return res.status(500).json({ message: 'Invalid pricing data in booking or car' });
+    }
+
+    const extraCost = extraHours * pricePerHour;
+
+    // Step 7: Format new end date/time
+    const newDateStr = newEndTime.toISOString().split('T')[0];
+    const newTimeStr = newEndTime.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    // Step 8: Update booking
+    booking.rentalEndDate = newDateStr;
+    booking.to = newTimeStr;
+    booking.deliveryDate = newDateStr;
+    booking.deliveryTime = newTimeStr;
+    booking.totalPrice = currentTotal + extraCost;
+
+    const updated = await booking.save();
+
+    // Step 9: Respond
     return res.status(200).json({
       message: 'Booking extended successfully',
       updatedBooking: {
-        _id: updatedBooking._id,
-        rentalEndDate: updatedBooking.rentalEndDate.toLocaleString('en-US'),
-        deliveryDate: updatedBooking.deliveryDate,
-        deliveryTime: updatedBooking.deliveryTime,
-        totalPrice: updatedBooking.totalPrice
+        _id: updated._id,
+        rentalEndDate: updated.rentalEndDate,
+        to: updated.to,
+        deliveryDate: updated.deliveryDate,
+        deliveryTime: updated.deliveryTime,
+        totalPrice: updated.totalPrice
       }
     });
+
   } catch (err) {
     console.error('Extend Booking Error:', err);
     return res.status(500).json({ message: 'Error extending booking' });
   }
 };
+
 
 
 
