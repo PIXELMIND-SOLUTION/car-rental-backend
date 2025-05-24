@@ -22,6 +22,19 @@ const carSchema = new Schema({
     type: Boolean,
     default: true,
   },
+   // ... other fields ...
+  availability: [
+    {
+      date: {
+        type: String,
+      },
+      timeSlots: [
+        {
+          type: String,
+        },
+      ],
+    },
+  ],
   carImage: {
     type: [String], // ✅ Array of image URLs
     default: [],    // ✅ Optional default to avoid null

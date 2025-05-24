@@ -37,6 +37,10 @@ const bookingSchema = new Schema({
     enum: ['pending', 'confirmed', 'cancelled', 'completed', 'active'],
     default: 'pending',
   },
+  deposit: {
+  type: String,
+  default: '',  // empty string by default
+},
   paymentStatus: {
     type: String,
     enum: ['pending', 'Paid'],

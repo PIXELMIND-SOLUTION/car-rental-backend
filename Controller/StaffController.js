@@ -472,3 +472,83 @@ export const getBookingStatistics = async (req, res) => {
 };
 
 
+
+export const getBookingsByDate = async (req, res) => {
+  try {
+    const { date } = req.body;
+
+    const selectedDate = date ? new Date(date) : new Date();
+
+    // Set time range for the entire selected day
+    const startOfDay = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate()
+    );
+
+    const endOfDay = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
+    const bookings = await Booking.find({
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    })
+      .populate('userId', 'name email')
+      .populate('carId');
+
+    const formattedBookings = bookings.map((booking) => {
+      const rentalStart = new Date(booking.rentalStartDate);
+      const rentalEnd = new Date(booking.rentalEndDate);
+
+      const formatTime12Hour = (date) => {
+        const options = { hour: 'numeric', minute: '2-digit', hour12: true };
+        return date.toLocaleTimeString('en-US', options);
+      };
+
+      return {
+        _id: booking._id,
+        userId: booking.userId,
+        carId: booking.carId._id,
+        rentalStartDate: rentalStart.toLocaleDateString('en-US'),
+        rentalEndDate: rentalEnd.toLocaleDateString('en-US'),
+        from: formatTime12Hour(rentalStart),
+        to: formatTime12Hour(rentalEnd),
+        totalPrice: booking.totalPrice,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        otp: booking.otp,
+        pickupLocation: booking.carId.location || null,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+        car: {
+          _id: booking.carId._id,
+          carName: booking.carId.carName,
+          model: booking.carId.model,
+          pricePerHour: booking.carId.pricePerHour,
+          location: booking.carId.location,
+          carImage: booking.carId.carImage,
+        },
+      };
+    });
+
+    return res.status(200).json({
+      message: `Bookings for ${startOfDay.toDateString()} retrieved successfully`,
+      bookings: formattedBookings,
+    });
+  } catch (err) {
+    console.error('Error fetching bookings:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+

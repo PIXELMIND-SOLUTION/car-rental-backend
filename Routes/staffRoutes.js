@@ -8,7 +8,8 @@ import {
     editStaffProfile,
     getAllBookings,
     getTodaysBookings,
-    getBookingStatistics, 
+    getBookingStatistics,
+    getBookingsByDate, 
  } from '../Controller/StaffController.js'; // Import StaffController
 
 const router = express.Router();
@@ -28,6 +29,7 @@ router.post('/create-profile/:staffId', createStaffProfile);  // Create or updat
 router.put('/update-profile/:staffId', editStaffProfile);    // Edit profile image
 router.get('/allbookings', getAllBookings);
 router.get('/todaybookings', getTodaysBookings);
+router.get('/bookingsbydate', getBookingsByDate);
 router.get('/staticsbookings', getBookingStatistics);
 
 
