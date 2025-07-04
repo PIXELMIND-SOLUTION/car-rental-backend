@@ -16,13 +16,17 @@ import {
      uploadUserDocuments,
      getUserDocuments,
      payForBooking,
-     getReferralCode
+     getReferralCode,
+     verifyOtp,
+     resendOTP,
+     updateUserLocation,
+     getNearestBranch,
+     razorpayWebhook,
+     deleteAccount
     } from '../Controller/UserController.js'; // Import UserController
 
 const router = express.Router();
-import fileUpload from 'express-fileupload'
 
-router.use(fileUpload({ useTempFiles: true }))
 
 
 
@@ -31,6 +35,8 @@ router.post('/register', registerUser);
 
 // Login Route
 router.post('/login', loginUser);
+router.post("/resend-otp", resendOTP);
+router.post('/verify-otp', verifyOtp);
 // Get user details (GET)
 router.get('/get-user/:userId', getUser);  // Adding a middleware to verify JWT token
 
@@ -55,8 +61,14 @@ router.put('/extendbookings/:userId/:bookingId', extendBooking);
 router.post('/addamount/:userId', addToWallet)
 router.get('/getwallet/:userId', getWalletTransactions)
 router.post('/uploaddocuments/:userId', uploadUserDocuments)
+router.post('/add-location', updateUserLocation)
+router.get('/nearestbranch/:userId', getNearestBranch)
 router.get('/documents/:userId', getUserDocuments)
 router.get('/getreffercode/:userId', getReferralCode)
+router.post('/deleteaccount/:userId', deleteAccount)
+
+router.post('/razorpay-webhook', express.json({ type: '*/*' }), razorpayWebhook);
+
 
 
 

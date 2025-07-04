@@ -8,19 +8,28 @@ import connectDatabase from './db/connectDatabase.js';
 import UserRoutes from './Routes/userRoutes.js'
 import staffRoutes from './Routes/staffRoutes.js'
 import carRoutes from './Routes/carRoutes.js'
+import AdminRoutes from './Routes/adminRoutes.js'
+import fileUpload from 'express-fileupload';
+import path from 'path'
+import { fileURLToPath } from 'url';
+
+
 
 
 dotenv.config();
 
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 
 
 const app = express();
 
+
 // ✅ Serve static files from /uploads
 app.use(cors({
-    origin: ['http://localhost:3000'],
+    origin: ['http://localhost:3000', 'http://194.164.148.244:7650'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
@@ -30,6 +39,9 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 // Database connection
 connectDatabase();
+
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 // Default route
@@ -45,6 +57,10 @@ app.get("/", (req, res) => {
 
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
+app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: '/tmp/', // or './tmp' or any other folder
+}));
 
 // Serve frontend static files (HTML, JS, CSS)
 
@@ -52,6 +68,7 @@ app.use(bodyParser.json());
 // Create HTTP server with Express app
 const server = http.createServer(app);
 
+app.use('/api/admin', AdminRoutes);
 app.use('/api/users', UserRoutes);
 app.use('/api/staff', staffRoutes); // Prefix all staff-related routes with /api/staff
 app.use('/api/car', carRoutes); // Prefix with '/api'
@@ -59,8 +76,9 @@ app.use('/api/car', carRoutes); // Prefix with '/api'
 
 
 
-// Start the server
-const port = process.env.PORT || 6000;
-server.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+const port = process.env.PORT || 6061;
+
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 Server running on http://0.0.0.0:${port}`);
 });
+

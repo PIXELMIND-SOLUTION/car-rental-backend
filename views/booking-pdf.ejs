@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Booking Confirmation</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      background-color: #f7f9fa;
+      font-size: 11px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+      font-size: 11px;
+    }
+
+    th, td {
+      padding: 6px 8px;
+      text-align: left;
+      border: 1px solid #ccc;
+    }
+
+    th {
+      background-color: #2980b9;
+      color: white;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+
+    .section-title {
+      background-color: #ecf0f1;
+      padding: 5px 10px;
+      font-weight: bold;
+      border-left: 4px solid #3498db;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .img-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .img-box {
+      width: 140px;
+      text-align: center;
+    }
+
+    .img-box img {
+      width: 100%;
+      border: 1px solid #ccc;
+      padding: 3px;
+    }
+
+    .label {
+      font-weight: bold;
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Booking Verification Summary</h1>
+
+  <div class="section">
+    <div class="section-title">User Details</div>
+    <table>
+      <tr>
+        <th>Name</th>
+        <td><%= user.name %></td>
+      </tr>
+      <tr>
+        <th>Email</th>
+        <td><%= user.email %></td>
+      </tr>
+      <tr>
+        <th>Mobile</th>
+        <td><%= user.mobile %></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Booking Details</div>
+    <table>
+      <tr>
+        <th>Booking ID</th>
+        <td><%= booking._id %></td>
+      </tr>
+      <tr>
+        <th>Status</th>
+        <td><%= booking.status %></td>
+      </tr>
+      <tr>
+        <th>Deposit</th>
+        <td><%= booking.deposit %></td>
+      </tr>
+      <tr>
+        <th>Return OTP</th>
+        <td><%= booking.returnOTP %></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Deposit Proof</div>
+    <% if (booking.depositeProof && booking.depositeProof.length > 0) { %>
+      <div class="img-container">
+        <% booking.depositeProof.forEach(proof => { %>
+          <div class="img-box">
+            <div class="label"><%= proof.label %></div>
+            <img src="<%= proof.url %>" alt="<%= proof.label %>">
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <p>No deposit proof images available.</p>
+    <% } %>
+  </div>
+</body>
+</html>

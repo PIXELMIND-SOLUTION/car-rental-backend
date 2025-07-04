@@ -1,5 +1,11 @@
 import Car from "../Models/Car.js";
+import Banner from "../Models/Banner.js";
+import cloudinary from "../config/cloudinary.js";
+import User from "../Models/User.js";
 // Add a new car
+
+
+
 export const addCar = async (req, res) => {
   try {
     const {
@@ -7,49 +13,164 @@ export const addCar = async (req, res) => {
       model,
       year,
       pricePerHour,
+      pricePerDay,
+      delayPerHour,
+      delayPerDay,
+      extendedPrice,
       type,
       description,
-      carImage = [],
       location,
       carType,
       fuel,
       seats,
-      availability = [], // <-- array of objects { date, timeSlots }
+      vehicleNumber,
+      branchName,
+      branchLat,
+      branchLng,
+      availability = [],
     } = req.body;
 
-    if (!Array.isArray(carImage)) {
-      return res.status(400).json({ message: 'carImage should be an array of image URLs' });
+    // ✅ Validate branch info
+    if (!branchName || !branchLat || !branchLng) {
+      return res.status(400).json({ message: 'Branch name, latitude, and longitude are required' });
     }
 
-    // Optional: Validate availability structure
-    for (const entry of availability) {
-      if (!entry.date || !Array.isArray(entry.timeSlots)) {
-        return res.status(400).json({ message: 'Invalid availability format. Each entry must have a date and an array of timeSlots.' });
+    // ✅ 1. Upload car images (if any)
+    let carImageUrls = [];
+
+    if (req.files && req.files.carImage) {
+      const images = Array.isArray(req.files.carImage)
+        ? req.files.carImage
+        : [req.files.carImage];
+
+      const uploadedImages = await Promise.all(
+        images.map((img) =>
+          cloudinary.uploader.upload(img.tempFilePath, { folder: 'cars' })
+        )
+      );
+
+      carImageUrls = uploadedImages.map(img => img.secure_url);
+    } else if (req.body.carImage) {
+      if (typeof req.body.carImage === 'string') {
+        carImageUrls = [req.body.carImage];
+      } else if (Array.isArray(req.body.carImage)) {
+        carImageUrls = req.body.carImage;
       }
     }
 
+    // ✅ 1.5 Upload car documents (if any)
+    let carDocUrls = [];
+
+    if (req.files && req.files.carDocs) {
+      const docs = Array.isArray(req.files.carDocs)
+        ? req.files.carDocs
+        : [req.files.carDocs];
+
+      const uploadedDocs = await Promise.all(
+        docs.map((doc) =>
+          cloudinary.uploader.upload(doc.tempFilePath, {
+            folder: 'car-docs',
+            resource_type: 'auto' // handles PDFs, images, etc.
+          })
+        )
+      );
+
+      carDocUrls = uploadedDocs.map(doc => doc.secure_url);
+    } else if (req.body.carDocs) {
+      if (typeof req.body.carDocs === 'string') {
+        carDocUrls = [req.body.carDocs];
+      } else if (Array.isArray(req.body.carDocs)) {
+        carDocUrls = req.body.carDocs;
+      }
+    }
+
+    // ✅ 2. Parse extended price
+    let parsedExtendedPrice = extendedPrice;
+    if (typeof extendedPrice === 'string') {
+      try {
+        parsedExtendedPrice = JSON.parse(extendedPrice);
+      } catch (err) {
+        return res.status(400).json({ message: 'Invalid extendedPrice JSON format' });
+      }
+    }
+
+    // ✅ 3. Parse availability
+    let parsedAvailability = availability;
+    if (typeof availability === 'string') {
+      try {
+        parsedAvailability = JSON.parse(availability);
+      } catch (err) {
+        return res.status(400).json({ message: 'Invalid availability JSON format' });
+      }
+    }
+
+    if (!Array.isArray(parsedAvailability)) {
+      return res.status(400).json({ message: 'Availability must be an array' });
+    }
+
+    parsedAvailability = parsedAvailability.map(entry => {
+      if (!entry.date || !Array.isArray(entry.timeSlots)) {
+        throw new Error('Each availability entry must have a valid "date" and "timeSlots"');
+      }
+
+      const d = new Date(entry.date);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const formattedDate = `${yyyy}/${mm}/${dd}`;
+
+      const timeFormat = /^\d{2}:\d{2}$/;
+      for (const t of entry.timeSlots) {
+        if (!timeFormat.test(t)) {
+          throw new Error(`Invalid time format: ${t}`);
+        }
+      }
+
+      return {
+        ...entry,
+        date: formattedDate,
+      };
+    });
+
+    // ✅ 4. Create Car document
     const newCar = new Car({
       carName,
       model,
       year,
       pricePerHour,
+      pricePerDay,
+      delayPerHour,
+      delayPerDay,
+      extendedPrice: parsedExtendedPrice,
       description,
-      carImage,
+      carImage: carImageUrls,
+      carDocs: carDocUrls, // ✅ add carDocs URLs here
       location,
       carType,
       fuel,
       type,
       seats,
-      availability, // ✅ added here
+      vehicleNumber,
+      availability: parsedAvailability,
+      status: 'active',
+      branch: {
+        name: branchName,
+        location: {
+          type: 'Point',
+          coordinates: [parseFloat(branchLng), parseFloat(branchLat)],
+        },
+      },
     });
 
     const savedCar = await newCar.save();
+
     return res.status(201).json({
-      message: 'Car added successfully',
+      message: 'Car added successfully!',
       car: savedCar,
     });
+
   } catch (err) {
-    console.error(err);
+    console.error('Error in addCar:', err);
     return res.status(500).json({ message: 'Error adding car', error: err.message });
   }
 };
@@ -58,26 +179,28 @@ export const getAllCars = async (req, res) => {
   try {
     const { start, end, time, type, fuel, seats, location } = req.query;
 
-    // Validate dates if provided
+    // Date format validation YYYY/MM/DD
     const dateRegex = /^\d{4}\/\d{2}\/\d{2}$/;
     if ((start && !dateRegex.test(start)) || (end && !dateRegex.test(end))) {
       return res.status(400).json({ message: 'Date must be in YYYY/MM/DD format' });
     }
 
-    // Build date range only if both dates are provided
+    // Date range array creation
     let dateRange = [];
     if (start && end) {
       const current = new Date(start.replace(/\//g, '-'));
       const endDate = new Date(end.replace(/\//g, '-'));
 
       while (current <= endDate) {
-        const formatted = current.toISOString().slice(0, 10).replace(/-/g, '/');
-        dateRange.push(formatted);
+        const yyyy = current.getFullYear();
+        const mm = String(current.getMonth() + 1).padStart(2, '0');
+        const dd = String(current.getDate()).padStart(2, '0');
+        dateRange.push(`${yyyy}/${mm}/${dd}`);
         current.setDate(current.getDate() + 1);
       }
     }
 
-    // Handle time if provided
+    // Time slots array and validation
     let timeSlots = [];
     if (time) {
       timeSlots = time.split(',').map(t => t.trim());
@@ -89,25 +212,28 @@ export const getAllCars = async (req, res) => {
       }
     }
 
-    // Build filter dynamically
+    // Base filter (no status restriction)
     const filter = {};
 
+    // Apply filters for availability
     if (dateRange.length && timeSlots.length) {
-      filter.availability = {
-        $elemMatch: {
-          date: { $in: dateRange },
-          timeSlots: { $in: timeSlots },
-        },
-      };
+      filter.$and = [
+        { 'availability.date': { $in: dateRange } },
+        { 'availability.timeSlots': { $in: timeSlots } }
+      ];
     } else if (dateRange.length) {
       filter['availability.date'] = { $in: dateRange };
+    } else if (timeSlots.length) {
+      filter['availability.timeSlots'] = { $in: timeSlots };
     }
 
+    // Other filters
     if (type) filter.type = type;
     if (fuel) filter.fuel = fuel;
     if (seats) filter.seats = parseInt(seats);
-    if (location) filter.location = new RegExp(location, 'i'); // case-insensitive
+    if (location) filter.location = new RegExp(location, 'i');
 
+    // Query database
     const cars = await Car.find(filter);
 
     if (!cars.length) {
@@ -119,10 +245,144 @@ export const getAllCars = async (req, res) => {
       cars,
     });
   } catch (err) {
-    console.error(err);
+    console.error('Error in getAllCars:', err);
     return res.status(500).json({ message: 'Error fetching cars', error: err.message });
   }
 };
+
+
+
+
+export const AllCars = async (req, res) => {
+  try {
+    const { userId, type, fuel, seats } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required in query' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user || !user.location || !Array.isArray(user.location.coordinates)) {
+      return res.status(404).json({ message: 'User or location not found' });
+    }
+
+    const userCoords = user.location.coordinates; // [lng, lat]
+
+    const filter = {
+      status: 'active',
+      runningStatus: 'Available',
+      'branch.location': {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: userCoords,
+          },
+          $minDistance: 0,
+          $maxDistance: 50000, // 50 km
+        }
+      }
+    };
+
+    if (type) filter.type = type;
+    if (fuel) filter.fuel = fuel;
+    if (seats) filter.seats = parseInt(seats);
+
+    const nearbyCars = await Car.find(filter);
+
+    if (!nearbyCars || nearbyCars.length === 0) {
+      return res.status(404).json({ message: 'No nearby branch found' });
+    }
+
+    return res.status(200).json({
+      message: 'Nearby branches with available cars found successfully',
+      cars: nearbyCars.map(car => ({
+        _id: car._id,
+        carName: car.carName,
+        model: car.model,
+        year: car.year,
+        pricePerHour: car.pricePerHour,
+        pricePerDay: car.pricePerDay,
+        extendedPrice: car.extendedPrice,
+        delayPerHour: car.delayPerHour,
+        delayPerDay: car.delayPerDay,
+        vehicleNumber: car.vehicleNumber,
+        carImage: car.carImage,
+        carDocs: car.carDocs,
+        carType: car.carType,
+        fuel: car.fuel,
+        seats: car.seats,
+        type: car.type,
+        description: car.description,
+        location: car.location,
+        status: car.status,
+        runningStatus: car.runningStatus,
+        branch: car.branch
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error finding nearby cars:', error);
+    return res.status(500).json({
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
+export const getCarsNearUser = async (req, res) => {
+  try {
+    const { userId, maxDistance = 5000 /* in meters */, type, fuel, seats } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user || !user.location || !user.location.coordinates) {
+      return res.status(404).json({ message: 'User or user location not found' });
+    }
+
+    const userCoords = user.location.coordinates; // [lng, lat]
+
+    const filter = {
+      status: 'active',
+      runningStatus: { $ne: 'Booked' },
+      'branch.location': {
+        $nearSphere: {
+          $geometry: {
+            type: 'Point',
+            coordinates: userCoords,
+          },
+          $maxDistance: parseInt(maxDistance),
+        },
+      },
+    };
+
+    if (type) filter.type = type;
+    if (fuel) filter.fuel = fuel;
+    if (seats) filter.seats = seats;
+
+    const cars = await Car.find(filter);
+
+    if (!cars.length) {
+      return res.status(404).json({ message: 'No cars found near your location' });
+    }
+
+    res.status(200).json({ total: cars.length, cars });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching cars', error: error.message });
+  }
+};
+
+
+
+
 
 
 
@@ -143,32 +403,171 @@ export const getCarById = async (req, res) => {
 // Update a car by ID
 export const updateCar = async (req, res) => {
   try {
+    const { carId } = req.params;
+    if (!carId) return res.status(400).json({ message: 'Car ID is required' });
+
+    const {
+      carName,
+      model,
+      year,
+      pricePerHour,
+      pricePerDay,
+      extendedPrice,
+      type,
+      description,
+      location,
+      carType,
+      fuel,
+      seats,
+      availability = [],
+      status,
+    } = req.body;
+
+    // ✅ 1. Upload new car images if provided
+    let carImageUrls = [];
+    if (req.files && req.files.carImage) {
+      const images = Array.isArray(req.files.carImage)
+        ? req.files.carImage
+        : [req.files.carImage];
+
+      const uploadedImages = await Promise.all(
+        images.map((img) =>
+          cloudinary.uploader.upload(img.tempFilePath, { folder: 'cars' })
+        )
+      );
+
+      carImageUrls = uploadedImages.map(img => img.secure_url);
+    } else if (req.body.carImage) {
+      if (typeof req.body.carImage === 'string') {
+        carImageUrls = [req.body.carImage];
+      } else if (Array.isArray(req.body.carImage)) {
+        carImageUrls = req.body.carImage;
+      }
+    }
+
+    // ✅ 1.5 Upload new car documents if provided
+    let carDocUrls = [];
+    if (req.files && req.files.carDocs) {
+      const docs = Array.isArray(req.files.carDocs)
+        ? req.files.carDocs
+        : [req.files.carDocs];
+
+      const uploadedDocs = await Promise.all(
+        docs.map((doc) =>
+          cloudinary.uploader.upload(doc.tempFilePath, {
+            folder: 'car-docs',
+            resource_type: 'auto', // allow PDF, image, etc.
+          })
+        )
+      );
+
+      carDocUrls = uploadedDocs.map(doc => doc.secure_url);
+    } else if (req.body.carDocs) {
+      if (typeof req.body.carDocs === 'string') {
+        carDocUrls = [req.body.carDocs];
+      } else if (Array.isArray(req.body.carDocs)) {
+        carDocUrls = req.body.carDocs;
+      }
+    }
+
+    // ✅ 2. Parse availability
+    let parsedAvailability = availability;
+    if (typeof availability === 'string') {
+      try {
+        parsedAvailability = JSON.parse(availability);
+      } catch (err) {
+        return res.status(400).json({ message: 'Invalid availability JSON format' });
+      }
+    }
+
+    if (!Array.isArray(parsedAvailability)) {
+      return res.status(400).json({ message: 'availability must be an array' });
+    }
+
+    for (const entry of parsedAvailability) {
+      if (!entry.date || !Array.isArray(entry.timeSlots)) {
+        return res.status(400).json({
+          message: 'Invalid availability format. Each entry must have a date and an array of timeSlots.',
+        });
+      }
+    }
+
+    // ✅ 3. Parse extended price
+    let parsedExtendedPrice = extendedPrice;
+    if (typeof extendedPrice === 'string') {
+      try {
+        parsedExtendedPrice = JSON.parse(extendedPrice);
+      } catch (err) {
+        return res.status(400).json({ message: 'Invalid extendedPrice JSON format' });
+      }
+    }
+
+    // ✅ 4. Prepare fields to update
+    const updatedFields = {
+      carName,
+      model,
+      year,
+      pricePerHour,
+      pricePerDay,
+      extendedPrice: parsedExtendedPrice,
+      description,
+      location,
+      carType,
+      fuel,
+      type,
+      seats,
+      availability: parsedAvailability,
+      status: status || 'active',
+    };
+
+    if (carImageUrls.length > 0) {
+      updatedFields.carImage = carImageUrls;
+    }
+
+    if (carDocUrls.length > 0) {
+      updatedFields.carDocs = carDocUrls;
+    }
+
+    // ✅ 5. Update DB
     const updatedCar = await Car.findByIdAndUpdate(
-      req.params.id,
-      { ...req.body, updatedAt: Date.now() },
-      { new: true }
+      carId,
+      updatedFields,
+      { new: true, runValidators: true }
     );
+
     if (!updatedCar) {
       return res.status(404).json({ message: 'Car not found' });
     }
-    return res.status(200).json({ message: 'Car updated successfully', car: updatedCar });
+
+    return res.status(200).json({
+      message: 'Car updated successfully!',
+      car: updatedCar,
+    });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: 'Error updating car' });
+    return res.status(500).json({ message: 'Error updating car', error: err.message });
   }
 };
 
 // Delete a car by ID
 export const deleteCar = async (req, res) => {
-  try {
-    const deletedCar = await Car.findByIdAndDelete(req.params.id);
+ try {
+    const { carId } = req.params;
+    if (!carId) return res.status(400).json({ message: 'Car ID is required' });
+
+    const deletedCar = await Car.findByIdAndDelete(carId);
+
     if (!deletedCar) {
       return res.status(404).json({ message: 'Car not found' });
     }
-    return res.status(200).json({ message: 'Car deleted successfully' });
+
+    return res.status(200).json({
+      message: 'Car deleted successfully!',
+      car: deletedCar,
+    });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: 'Error deleting car' });
+    return res.status(500).json({ message: 'Error deleting car', error: err.message });
   }
 };
 
@@ -204,3 +603,128 @@ export const createDeposit = async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
+export const createBanner = async (req, res) => {
+  try {
+
+    // Ensure images is always an array
+    const images = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+
+    // Upload each image using the same cloudinary method as createProfile
+    const uploadedImages = await Promise.all(
+      images.map((img) =>
+        cloudinary.uploader.upload(img.tempFilePath, {
+          folder: 'banners',
+        })
+      )
+    );
+
+    // Extract URLs
+    const imageUrls = uploadedImages.map((img) => img.secure_url);
+
+    // Save to DB
+    const banner = new Banner({ images: imageUrls });
+    await banner.save();
+
+    return res.status(201).json({
+      message: 'Banner created successfully!',
+      banner,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+export const updateBanner = async (req, res) => {
+  try {
+    const { bannerId } = req.params;
+    if (!bannerId) return res.status(400).json({ message: 'Banner ID is required' });
+
+    let imageUrls = [];
+
+    if (req.files && req.files.images) {
+      const images = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+
+      const uploadedImages = await Promise.all(
+        images.map((img) =>
+          cloudinary.uploader.upload(img.tempFilePath, {
+            folder: 'banners',
+          })
+        )
+      );
+
+      imageUrls = uploadedImages.map((img) => img.secure_url);
+    } else if (req.body.images) {
+      if (typeof req.body.images === 'string') {
+        imageUrls = [req.body.images];
+      } else if (Array.isArray(req.body.images)) {
+        imageUrls = req.body.images;
+      }
+    }
+
+    const updatedBanner = await Banner.findByIdAndUpdate(
+      bannerId,
+      { images: imageUrls.length > 0 ? imageUrls : undefined },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedBanner) {
+      return res.status(404).json({ message: 'Banner not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Banner updated successfully!',
+      banner: updatedBanner,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error updating banner', error: error.message });
+  }
+};
+
+
+
+export const deleteBanner = async (req, res) => {
+  try {
+    const { bannerId } = req.params;
+    if (!bannerId) return res.status(400).json({ message: 'Banner ID is required' });
+
+    const deletedBanner = await Banner.findByIdAndDelete(bannerId);
+
+    if (!deletedBanner) {
+      return res.status(404).json({ message: 'Banner not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Banner deleted successfully!',
+      banner: deletedBanner,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error deleting banner', error: error.message });
+  }
+};
+
+
+
+
+export const getBanners = async (req, res) => {
+  try {
+    const banners = await Banner.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: 'Banners fetched successfully!',
+      banners,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: 'Failed to fetch banners',
+      error: error.message,
+    });
+  }
+};
+

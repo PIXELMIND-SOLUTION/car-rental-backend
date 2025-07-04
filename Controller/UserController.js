@@ -4,10 +4,30 @@ import User from '../Models/User.js';
 import Booking from '../Models/Booking.js';
 import Car from '../Models/Car.js';
 import cloudinary from '../config/cloudinary.js';
+import Razorpay from 'razorpay';
+import Notification from '../Models/Notification.js';
+import mongoose from 'mongoose';
+
+import nodemailer from 'nodemailer';
+
+import twilio from "twilio";
+
 
 
 dotenv.config();
 
+
+// Twilio credentials
+const accountSid = 'AC6dbc0f86b6481658d4b4bc471d1dfb32';
+const authToken = '724cbf82d7e3c8a0462efb98ba713d4a'; // 🔒 Replace with actual
+const twilioPhone = '+19123489710';
+
+const client = twilio(accountSid, authToken);
+
+// Generate 4-digit OTP
+const generateOTP = () => {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+};
 
 
 
@@ -78,6 +98,7 @@ export const registerUser = async (req, res) => {
 };
 
 
+// 📲 Send OTP + Login
 export const loginUser = async (req, res) => {
   const { mobile } = req.body;
 
@@ -86,21 +107,129 @@ export const loginUser = async (req, res) => {
   }
 
   try {
-    // Find user by mobile number
-    let user = await User.findOne({ mobile });
+    const user = await User.findOne({ mobile });
 
-    // If user doesn't exist, create one
     if (!user) {
-      user = new User({ mobile });
-      await user.save();
+      return res.status(404).json({ error: "User with this mobile number does not exist" });
     }
 
-    // Generate JWT token
+    const otp = generateOTP();
+    const expiry = Date.now() + 30 * 1000; // 30 seconds
+
+    // Send custom OTP SMS
+    const message = `Hi ${user.name || "User"}, your OTP is ${otp}. It is valid for 30 seconds.`;
+
+    await client.messages.create({
+      body: message,
+      from: twilioPhone,
+      to: `+91${mobile}`,
+    });
+
+    // Save OTP and expiry
+    user.otp = otp;
+    user.otpExpires = expiry;
+    await user.save();
+
+    return res.status(200).json({
+      message: "OTP sent successfully",
+      mobile,
+      otp, // ✅ include OTP for testing
+      name: user.name || null,
+      email: user.email || null,
+      profileImage: user.profileImage || null,
+    });
+
+  } catch (error) {
+    console.error("OTP send failed:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
+// 📲 Resend OTP Controller
+export const resendOTP = async (req, res) => {
+  const { mobile } = req.body;
+
+  if (!mobile) {
+    return res.status(400).json({ error: "Mobile number is required" });
+  }
+
+  try {
+    const user = await User.findOne({ mobile });
+
+    if (!user) {
+      return res.status(404).json({ error: "User with this mobile number does not exist" });
+    }
+
+    // Optional cooldown logic (e.g., prevent resend before 15 seconds)
+    if (user.otpExpires && Date.now() < user.otpExpires - 15000) {
+      return res.status(429).json({ error: "Please wait a few seconds before requesting another OTP." });
+    }
+
+    const otp = generateOTP(); // Generate 6-digit OTP
+    const expiry = Date.now() + 30 * 1000; // 30 seconds validity
+
+    const message = `Hi ${user.name || "User"}, your new OTP is ${otp}. It is valid for 30 seconds.`;
+
+    // Send SMS via Twilio
+    await client.messages.create({
+      body: message,
+      from: twilioPhone,
+      to: `+91${mobile}`,
+    });
+
+    // Update OTP and expiry
+    user.otp = otp;
+    user.otpExpires = expiry;
+    await user.save();
+
+    return res.status(200).json({
+      message: "OTP resent successfully",
+      mobile,
+      otp, // ⚠️ Only for testing – remove in production
+    });
+
+  } catch (error) {
+    console.error("Resend OTP error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
+
+
+
+export const verifyOtp = async (req, res) => {
+  const { otp } = req.body;
+
+  if (!otp) {
+    return res.status(400).json({ error: "OTP is required" });
+  }
+
+  try {
+    // Find user by OTP
+    const user = await User.findOne({ otp });
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid OTP" });
+    }
+
+    if (Date.now() > user.otpExpires) {
+      return res.status(400).json({ error: "OTP expired. Please request again." });
+    }
+
+    // Clear OTP fields
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+
+    // Generate JWT
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
 
-    // Respond with full user details including profileImage
     return res.status(200).json({
-      message: "Login successful",
+      message: "OTP verified successfully",
       token,
       user: {
         _id: user._id,
@@ -108,53 +237,69 @@ export const loginUser = async (req, res) => {
         email: user.email || null,
         mobile: user.mobile,
         code: user.code || null,
-        profileImage: user.profileImage || null,  // Added here
+        profileImage: user.profileImage || null,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       }
     });
 
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      error: "Login failed",
-      details: error.message
-    });
+    console.error("OTP verification failed:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 
 
-// User Controller (GET User)
+
+
 export const getUser = async (req, res) => {
   try {
-    const userId = req.params.userId;  // Get the user ID from request params
+    const userId = req.params.userId;
 
-    // Find user by ID
-    const user = await User.findById(userId);
+    // Populate myBookings with Booking model
+    const user = await User.findById(userId).populate({
+      path: "myBookings",
+      model: "Booking"
+    });
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found!' });
+      return res.status(404).json({ message: "User not found!" });
     }
 
-    return res.status(200).json({
-      message: 'User details retrieved successfully!', // Added message
-      id: user._id,         // Include the user ID in the response
+    const userDetails = {
+      id: user._id,
       name: user.name,
       email: user.email,
       mobile: user.mobile,
-      profileImage: user.profileImage || 'default-profile-image.jpg', // Include profile image (or default if none)
+      otp: user.otp,
+      wallet: user.wallet,
+      totalWalletAmount: user.totalWalletAmount,
+      referredBy: user.referredBy,
+      points: user.points,
+      code: user.code,
+      profileImage: user.profileImage || "default-profile-image.jpg",
+      documents: user.documents,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      myBookings: user.myBookings, // Populated data here
+    };
+
+    return res.status(200).json({
+      message: "User details retrieved successfully!",
+      user: userDetails,
     });
+
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 
 export const createProfile = async (req, res) => {
   try {
-    const {userId} = req.params; // Get the userId from request params
+    const { userId } = req.params; // Get the userId from request params
 
     // Check if the user exists
     const existingUser = await User.findById(userId);
@@ -197,7 +342,7 @@ export const createProfile = async (req, res) => {
 // Update Profile Image (with userId in params)
 export const editProfileImage = async (req, res) => {
   try {
-    const {userId} = req.params; // Get the userId from request params
+    const { userId } = req.params; // Get the userId from request params
 
     // Check if the user exists
     const existingUser = await User.findById(userId);
@@ -268,130 +413,113 @@ export const getProfile = async (req, res) => {
 
 
 
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_hNwWuDNHuEICmT',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'haiixCtWn3RTXzUWAwZJSQjg'
+});
+
 export const createBooking = async (req, res) => {
   try {
     const {
       userId,
       carId,
-      rentalStartDate,  // Keep as string: "2025-08-01"
-      rentalEndDate,    // Keep as string: "2025-09-01"
-      from,             // e.g. "8:00 AM"
-      to                // e.g. "8:00 PM"
+      rentalStartDate,
+      rentalEndDate,
+      from,
+      to,
+      deposit,
+      amount,
+      transactionId // Razorpay payment ID from frontend
     } = req.body;
 
-    // 1. Find car
+    // 1️⃣ Validate car
     const car = await Car.findById(carId);
     if (!car) return res.status(404).json({ message: 'Car not found' });
-
-    // 2. Convert AM/PM to 24-hour time
-    const convertTo24Hour = (time) => {
-      const [timePart, period] = time.trim().split(/\s+/);
-      const [hours, minutes] = timePart.split(':');
-
-      let hours24 = parseInt(hours, 10);
-      if (period.toUpperCase() === 'PM' && hours24 !== 12) hours24 += 12;
-      if (period.toUpperCase() === 'AM' && hours24 === 12) hours24 = 0;
-
-      return `${hours24.toString().padStart(2, '0')}:${minutes.padStart(2, '0')}`;
-    };
-
-    const rentalStartTime = convertTo24Hour(from);
-    const rentalEndTime = convertTo24Hour(to);
-
-    // 3. Create full datetime strings, but still store as date-only strings
-    const rentalStartDateTime = `${rentalStartDate}T${rentalStartTime}:00`;
-    const rentalEndDateTime = `${rentalEndDate}T${rentalEndTime}:00`;
-
-    // 4. Validate dates
-    if (isNaN(Date.parse(rentalStartDateTime)) || isNaN(Date.parse(rentalEndDateTime))) {
-      return res.status(400).json({ message: 'Invalid date or time format' });
+    if (car.runningStatus === 'Booked') {
+      return res.status(409).json({ message: 'Car already booked' });
     }
 
-    if (rentalStartDateTime >= rentalEndDateTime) {
-      return res.status(400).json({
-        message: 'Rental start date and time must be before the end date and time'
-      });
+    // 2️⃣ Fetch payment
+    let paymentInfo = await razorpay.payments.fetch(transactionId);
+    if (!paymentInfo) {
+      return res.status(404).json({ message: "Payment not found" });
     }
 
-    // 5. Calculate duration and total price
-    const durationInHours = Math.ceil(
-      (new Date(rentalEndDateTime) - new Date(rentalStartDateTime)) / (1000 * 60 * 60)
-    );
-    const totalPrice = durationInHours * car.pricePerHour;
+    // 3️⃣ If only authorized, capture manually
+    if (paymentInfo.status === "authorized") {
+      try {
+        await razorpay.payments.capture(transactionId, amount * 100, "INR");
+        paymentInfo = await razorpay.payments.fetch(transactionId); // refresh status
+      } catch (err) {
+        console.error("❌ Payment capture failed:", err);
+        return res.status(500).json({ message: "Payment capture failed" });
+      }
+    }
 
-    // 6. Generate OTP
+    // 4️⃣ Check final status
+    if (paymentInfo.status !== "captured") {
+      return res.status(400).json({ message: `Payment not captured. Status: ${paymentInfo.status}` });
+    }
+
+    // 5️⃣ Proceed with booking
     const otp = Math.floor(1000 + Math.random() * 9000);
 
-    // 7. Save booking
     const newBooking = new Booking({
       userId,
       carId,
-      rentalStartDate,   // Store as string, same format: "2025-08-01"
-      rentalEndDate,     // Store as string, same format: "2025-09-01"
-      from,              // Store "from" time
-      to,                // Store "to" time
-      totalPrice,
+      rentalStartDate,
+      rentalEndDate,
+      from,
+      to,
+      deposit: deposit || '',
+      totalPrice: amount,
+      amount,
       otp,
-      deliveryDate: rentalEndDate,  // Store as string
-      deliveryTime: to,             // Store as string
+      transactionId,
+      paymentStatus: 'Paid',
+      deliveryDate: rentalEndDate,
+      deliveryTime: to,
+      status: 'confirmed'
     });
 
-    const savedBooking = await newBooking.save();
+    await newBooking.save();
 
-    // 8. Link to user
+    // 6️⃣ Update car status
+    car.runningStatus = 'Booked';
+    car.bookingDetails = {
+      rentalStartDate,
+      rentalEndDate
+    };
+    await car.save();
+
+    // 7️⃣ Link booking to user
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    user.myBookings.push(savedBooking._id);
+    user.myBookings.push(newBooking._id);
     await user.save();
 
-    // 9. Format dates (date-only) for response
-    const formatDateOnly = (dateStr) => {
-      const [year, month, day] = dateStr.split('-');
-      return `${month}-${day}-${year}`;  // Example: "08-01-2025"
-    };
 
-    // 10. Response
+    // 🔔 Store short notification in DB
+    const message = `🚗 ${car.title || car.model} booked by ${user.name} at ${new Date().toLocaleString()}`;
+    const notification = new Notification({
+      message,
+      type: "booking"
+    });
+
+    await notification.save();
+
+
     return res.status(201).json({
-      message: 'Booking created successfully',
-      booking: {
-        _id: savedBooking._id,
-        userId: savedBooking.userId,
-        carId: savedBooking.carId,
-        rentalStartDate: formatDateOnly(rentalStartDate), // ✅ date-only
-        rentalEndDate: formatDateOnly(rentalEndDate),     // ✅ date-only
-        from, // original input
-        to,
-        totalPrice,
-        status: savedBooking.status,
-        paymentStatus: savedBooking.paymentStatus,
-        otp,
-        pickupLocation: car.location || null,
-        createdAt: savedBooking.createdAt,
-        updatedAt: savedBooking.updatedAt,
-        deliveryDate: savedBooking.deliveryDate, // As inputted
-        deliveryTime: savedBooking.deliveryTime  // As inputted
-      },
-      car: {
-        _id: car._id,
-        carName: car.carName,
-        model: car.model,
-        pricePerHour: car.pricePerHour,
-        location: car.location,
-        carImage: car.carImage
-      }
+      message: "Booking confirmed",
+      booking: newBooking
     });
 
   } catch (err) {
-    console.error('Error in createBooking:', err);
-    return res.status(500).json({ message: 'Error creating booking' });
+    console.error("❌ Error in createBooking:", err);
+    return res.status(500).json({ message: "Something went wrong" });
   }
 };
-
-
-
-
-
 
 
 export const payForBooking = async (req, res) => {
@@ -415,7 +543,7 @@ export const payForBooking = async (req, res) => {
 
     const totalWalletBalance = user.wallet.reduce((acc, txn) =>
       txn.type === 'credit' ? acc + txn.amount : acc - txn.amount
-    , 0);
+      , 0);
 
     if (totalWalletBalance < booking.totalPrice) {
       return res.status(400).json({ message: 'Insufficient wallet balance' });
@@ -517,8 +645,10 @@ export const getBookingSummary = async (req, res) => {
         rentalStartDate: formattedStart,
         rentalEndDate: formattedEnd,
         totalPrice: booking.totalPrice,
+        amount: booking.amount,
         status: booking.status,
         paymentStatus: booking.paymentStatus,
+        delayedPaymentProof: booking.delayedPaymentProof,
         otp: booking.otp,
         deliveryDate: booking.deliveryDate,
         deliveryTime: booking.deliveryTime,
@@ -585,63 +715,70 @@ export const getRecentBooking = async (req, res) => {
 export const extendBooking = async (req, res) => {
   try {
     const { userId, bookingId } = req.params;
-    const { extendDeliveryDate, extendDeliveryTime, hours } = req.body;
+    const {
+      extendDeliveryDate,
+      extendDeliveryTime,
+      hours,
+      amount,
+      transactionId
+    } = req.body;
 
-    // Step 1: Get booking
-    const booking = await Booking.findOne({ _id: bookingId, userId }).populate('carId');
+    // 0️⃣ Validate payment for extension
+    let paymentInfo = await razorpay.payments.fetch(transactionId);
+    if (!paymentInfo) return res.status(404).json({ message: "Payment not found" });
+
+    if (paymentInfo.status === "authorized") {
+      try {
+        await razorpay.payments.capture(transactionId, Number(amount) * 100, "INR");
+        paymentInfo = await razorpay.payments.fetch(transactionId);
+      } catch (err) {
+        console.error("❌ Extension payment capture failed:", err);
+        return res.status(500).json({ message: "Extension payment capture failed" });
+      }
+    }
+
+    if (paymentInfo.status !== "captured") {
+      return res.status(400).json({ message: `Extension payment not captured. Status: ${paymentInfo.status}` });
+    }
+
+    // 1️⃣ Find booking
+    const booking = await Booking.findById(bookingId).populate('carId');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    // Step 2: Get old end time from rentalEndDate + to
-    let oldHour = 0;
-    let oldMinute = '00';
+    // Calculate old end time
+    const [tPart, period] = booking.to.split(' ');
+    let [hr, min] = tPart.split(':').map(p => parseInt(p));
+    if (period === 'PM' && hr !== 12) hr += 12;
+    if (period === 'AM' && hr === 12) hr = 0;
+    const oldEndTime = new Date(`${booking.rentalEndDate}T${hr.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:00`);
 
-    if (booking.to) {
-      const [timePart, period] = booking.to.split(' ');
-      const [hr, min] = timePart.split(':');
-      oldHour = parseInt(hr);
-      oldMinute = min;
-      if (period.toUpperCase() === 'PM' && oldHour !== 12) oldHour += 12;
-      if (period.toUpperCase() === 'AM' && oldHour === 12) oldHour = 0;
-    }
-
-    const oldEndTime = new Date(`${booking.rentalEndDate}T${oldHour.toString().padStart(2, '0')}:${oldMinute}:00`);
+    // 2️⃣ Calculate new end time
     let newEndTime;
-
-    // Step 3: Extend by hours
     if (hours && !isNaN(hours)) {
       newEndTime = new Date(oldEndTime.getTime() + Number(hours) * 60 * 60 * 1000);
-    }
-
-    // Step 4: Extend by extendDeliveryDate + extendDeliveryTime
-    else if (extendDeliveryDate && extendDeliveryTime) {
-      const [timePart, period] = extendDeliveryTime.split(' ');
-      const [hr, min] = timePart.split(':');
-      let extHour = parseInt(hr);
-      if (period.toUpperCase() === 'PM' && extHour !== 12) extHour += 12;
-      if (period.toUpperCase() === 'AM' && extHour === 12) extHour = 0;
-      const time24 = `${extHour.toString().padStart(2, '0')}:${min}`;
-      newEndTime = new Date(`${extendDeliveryDate}T${time24}:00`);
+    } else if (extendDeliveryDate && extendDeliveryTime) {
+      const [etPart, ePeriod] = extendDeliveryTime.split(' ');
+      let [ehr, emin] = etPart.split(':').map(p => parseInt(p));
+      if (ePeriod === 'PM' && ehr !== 12) ehr += 12;
+      if (ePeriod === 'AM' && ehr === 12) ehr = 0;
+      newEndTime = new Date(`${extendDeliveryDate}T${ehr.toString().padStart(2, '0')}:${emin.toString().padStart(2, '0')}:00`);
     } else {
       return res.status(400).json({ message: 'Provide either hours or extendDeliveryDate + extendDeliveryTime' });
     }
 
-    // Step 5: Check if valid
     if (newEndTime <= oldEndTime) {
       return res.status(400).json({ message: 'New time must be after current end time' });
     }
 
-    // Step 6: Calculate extra hours and cost safely
-    const extraHours = Math.ceil((newEndTime - oldEndTime) / (1000 * 60 * 60));
-    const pricePerHour = Number(booking.carId.pricePerHour);
-    const currentTotal = Number(booking.totalPrice);
-
-    if (isNaN(pricePerHour) || isNaN(currentTotal)) {
-      return res.status(500).json({ message: 'Invalid pricing data in booking or car' });
+    // 3️⃣ Validate amount
+    const extraCost = Number(amount);
+    if (isNaN(extraCost) || extraCost <= 0) {
+      return res.status(400).json({ message: 'Invalid amount provided' });
     }
 
-    const extraCost = extraHours * pricePerHour;
+    const currentTotal = Number(booking.totalPrice);
 
-    // Step 7: Format new end date/time
+    // 4️⃣ Update booking with new date, time, totalPrice, and saved transaction
     const newDateStr = newEndTime.toISOString().split('T')[0];
     const newTimeStr = newEndTime.toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -649,25 +786,36 @@ export const extendBooking = async (req, res) => {
       hour12: true
     });
 
-    // Step 8: Update booking
+    // Update only rentalEndDate and to (end time)
     booking.rentalEndDate = newDateStr;
     booking.to = newTimeStr;
-    booking.deliveryDate = newDateStr;
-    booking.deliveryTime = newTimeStr;
+
+    // Keep deliveryDate and deliveryTime as is (do NOT update)
+    // booking.deliveryDate = booking.deliveryDate;
+    // booking.deliveryTime = booking.deliveryTime;
+
     booking.totalPrice = currentTotal + extraCost;
+    booking.transactionId = transactionId;
 
-    const updated = await booking.save();
+    booking.extensions = booking.extensions || [];
+    booking.extensions.push({
+      extendDeliveryDate,
+      extendDeliveryTime,
+      hours,
+      amount: extraCost,
+      transactionId
+    });
 
-    // Step 9: Respond
+    await booking.save();
+
     return res.status(200).json({
       message: 'Booking extended successfully',
-      updatedBooking: {
-        _id: updated._id,
-        rentalEndDate: updated.rentalEndDate,
-        to: updated.to,
-        deliveryDate: updated.deliveryDate,
-        deliveryTime: updated.deliveryTime,
-        totalPrice: updated.totalPrice
+      extension: {
+        extendDeliveryDate,
+        extendDeliveryTime,
+        hours,
+        amount: extraCost,
+        transactionId
       }
     });
 
@@ -754,64 +902,88 @@ export const getWalletTransactions = async (req, res) => {
 
 export const uploadUserDocuments = async (req, res) => {
   try {
-    const userId = req.params.userId
+    const userId = req.params.userId;
 
-    const user = await User.findById(userId)
+    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' })
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const uploadedDocs = {}
+    const hasAadhar = req.files?.aadharCard;
+    const hasLicense = req.files?.drivingLicense;
 
-    // Upload Aadhar Card
-    if (req.files?.aadharCard) {
+    // ✅ Count already uploaded documents
+    const alreadyUploadedDocs = Object.entries(user.documents || {}).filter(
+      ([key, value]) => value?.url
+    );
+
+    if (alreadyUploadedDocs.length >= 2) {
+      return res.status(400).json({
+        message: 'You have already uploaded 2 documents. Upload limit reached.',
+      });
+    }
+
+    // ✅ Validation: At least one new document must be uploaded
+    if (!hasAadhar && !hasLicense) {
+      return res.status(400).json({
+        message: 'Please upload at least Aadhar card or Driving License.',
+      });
+    }
+
+    // ✅ Count how many are being uploaded now
+    const toUploadCount = (hasAadhar ? 1 : 0) + (hasLicense ? 1 : 0);
+
+    // ✅ Total after this upload must not exceed 2
+    if (alreadyUploadedDocs.length + toUploadCount > 2) {
+      return res.status(400).json({
+        message: `You can only upload 2 documents. You already uploaded ${alreadyUploadedDocs.length}.`,
+      });
+    }
+
+    const updatedDocs = {};
+
+    if (hasAadhar) {
       const result = await cloudinary.uploader.upload(
         req.files.aadharCard.tempFilePath,
         { folder: 'user_documents/aadhar' }
-      )
-
-      uploadedDocs.aadharCard = {
+      );
+      updatedDocs['documents.aadharCard'] = {
         url: result.secure_url,
         uploadedAt: new Date(),
-        status: 'pending'
-      }
+        status: 'pending',
+      };
     }
 
-    // Upload Driving License
-    if (req.files?.drivingLicense) {
+    if (hasLicense) {
       const result = await cloudinary.uploader.upload(
         req.files.drivingLicense.tempFilePath,
         { folder: 'user_documents/license' }
-      )
-
-      uploadedDocs.drivingLicense = {
+      );
+      updatedDocs['documents.drivingLicense'] = {
         url: result.secure_url,
         uploadedAt: new Date(),
-        status: 'pending'
-      }
+        status: 'pending',
+      };
     }
 
-    // Push to existing user.documents
-    user.documents = {
-      ...user.documents,
-      ...uploadedDocs
-    }
+    // ⬆️ Update only fields that are being uploaded
+    await User.updateOne({ _id: userId }, { $set: updatedDocs });
 
-    await user.save()
+    const updatedUser = await User.findById(userId);
 
     return res.status(200).json({
       message: 'Documents uploaded successfully',
-      documents: user.documents
-    })
-
+      documents: updatedUser.documents,
+    });
   } catch (error) {
-    console.error(error)
+    console.error('Upload Error:', error);
     return res.status(500).json({
       message: 'Error uploading documents',
-      error: error.message
-    })
+      error: error.message,
+    });
   }
-}
+};
+
 
 
 
@@ -869,6 +1041,212 @@ export const getReferralCode = async (req, res) => {
   }
 };
 
+
+
+export const updateUserLocation = async (req, res) => {
+  try {
+    const { userId, latitude, longitude } = req.body;
+
+    if (!userId || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ message: 'userId, latitude, and longitude are required' });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        location: {
+          type: 'Point',
+          coordinates: [parseFloat(longitude), parseFloat(latitude)],
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.status(200).json({
+      message: 'User location stored successfully',
+      location: updatedUser.location,
+    });
+  } catch (error) {
+    console.error('Error storing user location:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+
+
+export const getNearestBranch = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // ✅ Find the user
+    const user = await User.findById(userId);
+
+    if (!user || !user.location || !Array.isArray(user.location.coordinates)) {
+      return res.status(404).json({ message: 'User or location not found' });
+    }
+
+    const userCoords = user.location.coordinates; // [lng, lat]
+
+    // ✅ Find nearest car with branch using $near WITHOUT maxDistance
+    const nearestCar = await Car.findOne({
+      status: 'active',
+      runningStatus: 'Available',
+      'branch.location': {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: userCoords,
+          },
+          $minDistance: 0,
+          $maxDistance: 50000, // Optional: 50 km max range
+        }
+      }
+    });
+
+    if (!nearestCar) {
+      return res.status(404).json({ message: 'No nearby branch found' });
+    }
+
+    return res.status(200).json({
+      message: 'Nearest branch with available car found successfully',
+      branch: nearestCar.branch,
+      car: {
+        _id: nearestCar._id,
+        carName: nearestCar.carName,
+        model: nearestCar.model,
+        year: nearestCar.year,
+        pricePerHour: nearestCar.pricePerHour,
+        pricePerDay: nearestCar.pricePerDay,
+        extendedPrice: nearestCar.extendedPrice,
+        delayPerHour: nearestCar.delayPerHour,
+        delayPerDay: nearestCar.delayPerDay,
+        vehicleNumber: nearestCar.vehicleNumber,
+        carImage: nearestCar.carImage,
+        carType: nearestCar.carType,
+        fuel: nearestCar.fuel,
+        seats: nearestCar.seats,
+        type: nearestCar.type,
+        description: nearestCar.description,
+        location: nearestCar.location,
+      }
+    });
+
+  } catch (error) {
+    console.error('Error finding nearest branch:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+
+
+export const razorpayWebhook = async (req, res) => {
+  try {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || 'varahi123@secure';
+    const signature = req.headers['x-razorpay-signature'];
+    const body = JSON.stringify(req.body);
+
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(body)
+      .digest('hex');
+
+    if (signature !== expectedSignature) {
+      return res.status(400).json({ error: 'Invalid signature' });
+    }
+
+    const event = req.body;
+
+    // 🧾 Handle only payment_link.paid
+    if (event.event === 'payment_link.paid') {
+      const paymentLink = event.payload.payment_link.entity;
+      const referenceId = paymentLink.reference_id;
+
+      // ✅ Update the booking payment status
+      await Booking.findByIdAndUpdate(referenceId, {
+        paymentStatus: 'Paid'
+      });
+
+      console.log(`✅ Booking ${referenceId} marked as Paid`);
+    }
+
+    return res.status(200).json({ status: 'Webhook processed' });
+
+  } catch (error) {
+    console.error('❌ Webhook error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+
+
+
+// Setup Nodemailer transport
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'pms226803@gmail.com', // Your email address
+    pass: 'nras bifq xsxz urrm', // Use your app password here
+  },
+  tls: {
+    rejectUnauthorized: false, // Allow insecure connections (for debugging)
+  },
+  connectionTimeout: 10000, // Increase connection timeout to 10 seconds
+  greetingTimeout: 10000,    // Increase greeting timeout to 10 seconds
+  socketTimeout: 10000,      // Increase socket timeout to 10 seconds
+});
+
+
+export const deleteAccount = async (req, res) => {
+  const { email, reason } = req.body; // Get email and reason from request body
+  const { userId } = req.params; // Get userId from request params
+
+  // Validate fields
+  if (!email || !reason || !userId) {
+    return res.status(400).json({ message: 'User ID, email, and reason are required' });
+  }
+
+  // Ensure userId is a valid ObjectId before querying
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: 'Invalid user ID format' });
+  }
+
+  try {
+    // Find user by userId (ensure userId is an ObjectId)
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if the provided email matches the user's email
+    if (user.email !== email) {
+      return res.status(400).json({ message: 'Email does not match the user account' });
+    }
+
+    // 2️⃣ Send email confirmation (without deleting the user)
+    const mailOptions = {
+      from: 'pms226803@gmail.com', // Your email address
+      to: email, // Send to the email provided in the request
+      subject: 'Account Deletion Request Received',
+      text: `Hi ${user.name},\n\nWe have received your account deletion request. We're sorry to see you go! Your request has been processed, and your account is scheduled for deletion.\n\nReason for deletion: ${reason}\n\nIf you have any further queries, feel free to reach out to us.\n\nBest regards,\nYour Team`,
+    };
+
+    // Send the email
+    await transporter.sendMail(mailOptions);
+
+    return res.status(200).json({
+      message: 'Account deletion request has been processed. A confirmation email has been sent to the user.',
+    });
+  } catch (err) {
+    console.error('❌ Error in deleteAccount:', err);
+    return res.status(500).json({ message: 'Something went wrong' });
+  }
+};
 
 
 

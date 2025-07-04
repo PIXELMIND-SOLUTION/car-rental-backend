@@ -40,9 +40,13 @@
     "pdfkit": "^0.15.2",
     "puppeteer": "^23.11.1",
     "puppeteer-core": "^23.11.1",
+    "razorpay": "^2.9.6",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
-    "stream-to-buffer": "^0.1.0"
+    "stream-to-buffer": "^0.1.0",
+    "streamifier": "^0.1.1",
+    "stripe": "^18.2.1",
+    "twilio": "^5.7.0"
   },
   "type": "module"
 }

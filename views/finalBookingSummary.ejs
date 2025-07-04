@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Final Booking Summary</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      background-color: #f4f4f4;
+    }
+
+    h1 {
+      text-align: center;
+      color: #34495e;
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      background-color: #2980b9;
+      color: white;
+      padding: 10px;
+      margin-top: 30px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 25px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #3498db;
+      color: white;
+      text-transform: capitalize;
+    }
+
+    .image-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .image-section img {
+      max-width: 200px;
+      border: 1px solid #ddd;
+      padding: 4px;
+      background-color: white;
+    }
+
+    .img-label {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    .small {
+      font-size: 0.9em;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>Final Booking Summary</h1>
+
+  <!-- User Info -->
+  <h2>User Information</h2>
+  <table>
+    <tr><th>Name</th><td><%= booking.userId.name %></td></tr>
+    <tr><th>Email</th><td><%= booking.userId.email %></td></tr>
+    <tr><th>Mobile</th><td><%= booking.userId.mobile %></td></tr>
+  </table>
+
+ <h2>User Documents</h2>
+<table>
+  <tr>
+    <th>Document</th>
+    <th>Preview</th>
+    <th>Status</th>
+    <th>Uploaded At</th>
+  </tr>
+  <tr>
+    <td>Aadhar Card</td>
+    <td><img src="<%= booking.userId.documents.aadharCard.url %>" alt="Aadhar Card" width="200" /></td>
+    <td><%= booking.userId.documents.aadharCard.status %></td>
+    <td><%= new Date(booking.userId.documents.aadharCard.uploadedAt).toLocaleString() %></td>
+  </tr>
+  <tr>
+    <td>Driving License</td>
+    <td><img src="<%= booking.userId.documents.drivingLicense.url %>" alt="Driving License" width="200" /></td>
+    <td><%= booking.userId.documents.drivingLicense.status %></td>
+    <td><%= new Date(booking.userId.documents.drivingLicense.uploadedAt).toLocaleString() %></td>
+  </tr>
+</table>
+
+
+  <!-- Car Info -->
+  <h2>Car Information</h2>
+  <table>
+    <tr><th>Car Name</th><td><%= booking.carId.carName %></td></tr>
+    <tr><th>Model</th><td><%= booking.carId.model %></td></tr>
+    <tr><th>Year</th><td><%= booking.carId.year %></td></tr>
+    <tr><th>Vehicle Number</th><td><%= booking.carId.vehicleNumber %></td></tr>
+    <tr><th>Fuel</th><td><%= booking.carId.fuel %></td></tr>
+    <tr><th>Seats</th><td><%= booking.carId.seats %></td></tr>
+    <tr><th>Type</th><td><%= booking.carId.type %></td></tr>
+    <tr><th>Car Type</th><td><%= booking.carId.carType %></td></tr>
+    <tr><th>Description</th><td><%= booking.carId.description %></td></tr>
+    <tr><th>Location</th><td><%= booking.carId.location %></td></tr>
+  </table>
+
+  <!-- Booking Info -->
+  <h2>Booking Information</h2>
+  <table>
+    <tr><th>Status</th><td><%= booking.status %></td></tr>
+    <tr><th>Payment Status</th><td><%= booking.paymentStatus %></td></tr>
+    <tr><th>From</th><td><%= booking.from %></td></tr>
+    <tr><th>To</th><td><%= booking.to %></td></tr>
+    <tr><th>Rental Start Date</th><td><%= booking.rentalStartDate %></td></tr>
+    <tr><th>Rental End Date</th><td><%= booking.rentalEndDate %></td></tr>
+    <tr><th>Total Price</th><td>₹<%= booking.totalPrice %></td></tr>
+    <tr><th>Total</th><td>₹<%= booking.total %></td></tr>
+    <tr><th>Deposit</th><td><%= booking.deposit %></td></tr>
+    <tr><th>Pickup Location</th><td><%= booking.pickupLocation %></td></tr>
+  </table>
+
+  <!-- Deposit Proof -->
+  <h2>Deposit Proof</h2>
+  <div class="image-section">
+    <% booking.depositeProof.forEach(proof => { %>
+      <div>
+        <div class="img-label"><%= proof.label %></div>
+        <img src="<%= proof.url %>" alt="<%= proof.label %>">
+      </div>
+    <% }) %>
+  </div>
+
+  <!-- Car Images Before Pickup -->
+  <h2>Car Images Before Pickup</h2>
+  <div class="image-section">
+    <% booking.carImagesBeforePickup.forEach(img => { %>
+      <img src="<%= img.url %>" alt="Pickup Image">
+    <% }) %>
+  </div>
+
+  <!-- Car Return Images -->
+  <h2>Car Return Images</h2>
+  <div class="image-section">
+    <% booking.carReturnImages.forEach(img => { %>
+      <img src="<%= img.url %>" alt="Return Image">
+    <% }) %>
+  </div>
+
+  <!-- Return Details -->
+  <% if (booking.returnDetails.length > 0) { %>
+    <h2>Return Details</h2>
+    <table>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Mobile</th>
+        <th>Alt. Mobile</th>
+        <th>Return Time</th>
+        <th>Return Date</th>
+        <th>Delay Time (hrs)</th>
+        <th>Delay Days</th>
+      </tr>
+      <% booking.returnDetails.forEach(detail => { %>
+        <tr>
+          <td><%= detail.name %></td>
+          <td><%= detail.email %></td>
+          <td><%= detail.mobile %></td>
+          <td><%= detail.alternativeMobile %></td>
+          <td><%= detail.returnTime %></td>
+          <td><%= detail.returnDate %></td>
+          <td><%= detail.delayTime %></td>
+          <td><%= detail.delayDay %></td>
+        </tr>
+      <% }) %>
+    </table>
+  <% } %>
+</body>
+</html>

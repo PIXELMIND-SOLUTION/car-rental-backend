@@ -15,6 +15,17 @@ const carSchema = new Schema({
   pricePerHour: {
     type: Number,
   },
+  pricePerDay: {
+    type: Number, // ✅ New field
+  },
+  extendedPrice: {
+    perHour: {
+      type: Number, // ✅ Extended price per hour
+    },
+    perDay: {
+      type: Number, // ✅ Extended price per day
+    },
+  },
   description: {
     type: String,
   },
@@ -22,7 +33,9 @@ const carSchema = new Schema({
     type: Boolean,
     default: true,
   },
-   // ... other fields ...
+  delayPerHour: { type: Number },
+delayPerDay: { type: Number },
+vehicleNumber: { type: String },
   availability: [
     {
       date: {
@@ -36,8 +49,17 @@ const carSchema = new Schema({
     },
   ],
   carImage: {
-    type: [String], // ✅ Array of image URLs
-    default: [],    // ✅ Optional default to avoid null
+    type: [String],
+    default: [],
+  },
+  carDocs: {
+  type: [String],
+  default: [],
+},
+   runningStatus: {
+    type: String,
+    enum: ['Available', 'Booked'],
+    default: 'Available'
   },
   location: {
     type: String,
@@ -48,11 +70,28 @@ const carSchema = new Schema({
   fuel: {
     type: String,
   },
+   // <-- Branch Info -->
+  branch: {
+    name: { type: String,}, // branch name like "Gachibowli"
+    location: {                            // GeoJSON Point for branch coords
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: { type: [Number], }, // [lng, lat]
+    },
+  },
   seats: {
     type: Number,
   },
   type: {
     type: String,
+  },
+   status: {
+    type: String,
+    enum: ['active', 'onHold'],  // ✅ Enum values
+    default: 'active',          // ✅ Default value
   },
   createdAt: {
     type: Date,
@@ -63,6 +102,10 @@ const carSchema = new Schema({
     default: Date.now,
   },
 });
+
+
+carSchema.index({ "branch.location": "2dsphere" });
+
 
 const Car = mongoose.model('Car', carSchema);
 export default Car;

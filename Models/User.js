@@ -2,12 +2,9 @@ import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
 
-
-// User Schema without required and trim
-const userSchema = new mongoose.Schema({
+const userSchema = new Schema({
   name: {
     type: String,
-    // Removed 'required' and 'trim'
   },
   email: {
     type: String,
@@ -19,71 +16,106 @@ const userSchema = new mongoose.Schema({
   otp: {
     type: String,
   },
-  myBookings: [{
-    type: Schema.Types.ObjectId,
-    ref: 'Booking', // Reference to Booking model
-  }],
-   wallet: [
+  otpExpires: {
+    type: Date,
+  },
+  myBookings: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: 'Booking',
+    },
+  ],
+  wallet: [
     {
       amount: {
         type: Number,
-        required: true
+        required: true,
       },
       type: {
         type: String,
         enum: ['credit', 'debit'],
-        required: true
+        required: true,
       },
       message: {
         type: String,
-        default: ''
+        default: '',
       },
       date: {
         type: Date,
-        default: Date.now
+        default: Date.now,
       },
-    }
+    },
   ],
   totalWalletAmount: {
     type: Number,
-    default: 0 // The total balance of the wallet
+    default: 0,
   },
-  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Referrer user
-  points: { type: Number, default: 0 },  // Points earned by user
- code: {
-    type: String, // ✅ Optional field
+  referredBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  points: {
+    type: Number,
+    default: 0,
+  },
+  code: {
+    type: String,
     default: null,
   },
   profileImage: {
     type: String,
-    default: 'default-profile-image.jpg', // Optional default image
+    default: 'default-profile-image.jpg',
   },
 
- documents: {
-  aadharCard: {
-    url: { type: String },
-    uploadedAt: { type: Date },
-    status: {
+  // ✅ Moved location here (root level)
+  location: {
+    type: {
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
-      default: 'pending'
-    }
+      enum: ['Point'],
+      default: 'Point',
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: [0, 0],
+    },
   },
-  drivingLicense: {
-    url: { type: String },
-    uploadedAt: { type: Date },
-    status: {
+
+  notifications: [
+    {
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, // automatic ObjectId generation
+      message: String,
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
-      default: 'pending'
+      date: { type: Date, default: Date.now },
     }
-  }
-},
+  ],
+
+  documents: {
+    aadharCard: {
+      url: { type: String },
+      uploadedAt: { type: Date },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending',
+      },
+    },
+    drivingLicense: {
+      url: { type: String },
+      uploadedAt: { type: Date },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending',
+      },
+    },
+  },
 }, {
-  timestamps: true  // CreatedAt and UpdatedAt fields automatically
+  timestamps: true,
 });
 
-// Create model based on schema
+// ✅ Geo Index for geospatial queries
+userSchema.index({ location: '2dsphere' });
+
 const User = mongoose.model('User', userSchema);
 
 export default User;

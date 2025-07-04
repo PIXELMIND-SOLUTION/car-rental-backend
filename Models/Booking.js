@@ -41,11 +41,75 @@ const bookingSchema = new Schema({
   type: String,
   default: '',  // empty string by default
 },
+
+depositeProof: [
+  {
+    url: { type: String, required: true },
+    label: { type: String, enum: ['depositeFront', 'depositeBack'], required: true },
+  }
+],
+
+carImagesBeforePickup: [
+  {
+    url: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now }
+  }
+],
+
+carReturnImages: [
+  {
+    url: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now }
+  }
+],
+
+
+ returnDetails: [
+  {
+    name: { type: String },
+    email: { type: String },
+    mobile: { type: String },
+    alternativeMobile: { type: String },
+    returnTime: { type: String },
+    returnDate: { type: Date },
+    delayTime: { type: Number },
+    delayDay: { type: Number },
+    returnOTP: { type: String }, // ✅ Added this
+    createdAt: { type: Date, default: Date.now }
+  }
+],
+
+extensions: [
+  {
+    extendDeliveryDate: String,
+    extendDeliveryTime: String,
+    hours: Number,
+    amount: Number,
+    transactionId: String,
+    extendedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }
+],
+
   paymentStatus: {
     type: String,
-    enum: ['pending', 'Paid'],
+    enum: ['pending', 'Paid', 'unpaid'],
     default: 'pending',
   },
+  delayedPaymentProof: {
+  url: String,
+  uploadedAt: Date
+},
+  depositPDF: {
+  type: String,
+  default: null,
+},
+finalBookingPDF: {
+  type: String,
+  default: null
+},
   pickupLocation: {
     type: {
       address: { type: String },
@@ -64,6 +128,20 @@ const bookingSchema = new Schema({
   },
   otp: {
     type: Number,
+  },
+   amount: {
+    type: Number,
+  },
+  returnOTP: {
+  type: String,
+  default: null,
+},
+transactionId: {
+  type: String,
+},
+advancePaidStatus: {
+    type: Boolean,
+    default: false, // Default to false, i.e., not paid
   },
   createdAt: {
     type: Date,
